@@ -110,8 +110,10 @@ Add `--ExtraDataFolder "<folder containing settings.json>"` to test a specific s
 During development, add it as a **Local Solution Patcher** pointing at
 `FO4HeelSoundPatcher/FO4HeelSoundPatcher.csproj`.
 
-`FO4HeelSoundPatcher.synth` is an installer file for sharing the patcher once the repository is on
-GitHub — fill in the repository URL before handing it out.
+For normal use, add it as a **Git Repository Patcher** pointing at
+<https://github.com/Langmans/FO4HighHeelSoundsythesisPatcher>, or hand someone
+`FO4HeelSoundPatcher.synth` — double clicking that adds the patcher to the currently selected
+group in the Synthesis UI.
 
 ## Credits
 

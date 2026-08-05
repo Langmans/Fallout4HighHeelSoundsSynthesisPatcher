@@ -1,6 +1,6 @@
 {
   "AddGitPatcher": {
-    "Url": "https://github.com/<your-account>/FO4HeelSoundPatcher",
+    "Url": "https://github.com/Langmans/FO4HighHeelSoundsythesisPatcher",
     "SelectedProject": "FO4HeelSoundPatcher\\FO4HeelSoundPatcher.csproj"
   }
 }
