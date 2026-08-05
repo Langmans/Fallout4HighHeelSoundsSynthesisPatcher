@@ -1,4 +1,3 @@
-using System.Globalization;
 using FO4HeelSoundPatcher.Assets;
 using FO4HeelSoundPatcher.Detection;
 using FO4HeelSoundPatcher.Filtering;
@@ -7,7 +6,6 @@ using FO4HeelSoundPatcher.Nif;
 using Mutagen.Bethesda;
 using Mutagen.Bethesda.Fallout4;
 using Mutagen.Bethesda.Plugins;
-using Mutagen.Bethesda.Plugins.Cache;
 using Mutagen.Bethesda.Synthesis;
 
 namespace FO4HeelSoundPatcher;
@@ -91,8 +89,8 @@ public sealed class HeelSoundPatcher
         log.Info(
             $"Heel slots: {(heelSlots == 0 ? "<none configured>" : heelSlots.ToString())}");
         log.Info(
-            $"Height window: min {Fmt(_settings.Detection.MinimumHeelHeight)}, " +
-            $"max {(_settings.Detection.MaximumHeelHeight > 0 ? Fmt(_settings.Detection.MaximumHeelHeight) : "unbounded")}");
+            $"Height window: min {Num.Height(_settings.Detection.MinimumHeelHeight)}, " +
+            $"max {(_settings.Detection.MaximumHeelHeight > 0 ? Num.Height(_settings.Detection.MaximumHeelHeight) : "unbounded")}");
         if (_settings.Logging.DryRun) log.Always("DRY RUN - no records will be written");
         log.Always(string.Empty);
 
@@ -147,7 +145,7 @@ public sealed class HeelSoundPatcher
 
     // ------------------------------------------------------------------ filtering
 
-    private bool PassesFilters(
+    private static bool PassesFilters(
         IArmorGetter armor,
         HashSet<ModKey> modBlacklist,
         HashSet<FormKey> armorBlacklist,
@@ -256,7 +254,7 @@ public sealed class HeelSoundPatcher
             if (!_settings.Detection.FallbackToAllAddons)
             {
                 log.Skipped("no matching slot",
-                    $"{Describe(armor)} has height {Fmt(recordHeight.Value.Value)} but no addon covers a heel slot");
+                    $"{Describe(armor)} has height {Num.Height(recordHeight.Value.Value)} but no addon covers a heel slot");
                 return targets;
             }
 
@@ -266,7 +264,7 @@ public sealed class HeelSoundPatcher
             if (chosen.Count == 0)
             {
                 log.Skipped("no addon with model",
-                    $"{Describe(armor)} has height {Fmt(recordHeight.Value.Value)} but no addon has a world model");
+                    $"{Describe(armor)} has height {Num.Height(recordHeight.Value.Value)} but no addon has a world model");
                 return targets;
             }
         }
@@ -343,16 +341,16 @@ public sealed class HeelSoundPatcher
         if (height.Value < _settings.Detection.MinimumHeelHeight)
         {
             log.Skipped("below minimum height",
-                $"{Describe(armor)}{suffix} - {height.Source} height {Fmt(height.Value)} " +
-                $"< minimum {Fmt(_settings.Detection.MinimumHeelHeight)}");
+                $"{Describe(armor)}{suffix} - {height.Source} height {Num.Height(height.Value)} " +
+                $"< minimum {Num.Height(_settings.Detection.MinimumHeelHeight)}");
             return false;
         }
 
         if (_settings.Detection.MaximumHeelHeight > 0 && height.Value > _settings.Detection.MaximumHeelHeight)
         {
             log.Skipped("above maximum height",
-                $"{Describe(armor)}{suffix} - {height.Source} height {Fmt(height.Value)} " +
-                $"> maximum {Fmt(_settings.Detection.MaximumHeelHeight)}");
+                $"{Describe(armor)}{suffix} - {height.Source} height {Num.Height(height.Value)} " +
+                $"> maximum {Num.Height(_settings.Detection.MaximumHeelHeight)}");
             return false;
         }
 
@@ -436,5 +434,4 @@ public sealed class HeelSoundPatcher
     private static string Describe(IArmorGetter armor) =>
         $"ARMO {armor.FormKey} '{armor.EditorID ?? armor.Name?.String ?? "<unnamed>"}'";
 
-    private static string Fmt(float value) => value.ToString("0.00", CultureInfo.InvariantCulture);
 }

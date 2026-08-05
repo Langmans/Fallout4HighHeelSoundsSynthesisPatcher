@@ -71,7 +71,7 @@ public sealed class HhsTxtSource
             if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ||
                 float.TryParse(value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
             {
-                _log.Debug($"txt height {parsed:0.00} from {txtPath} ({origin})");
+                _log.Debug($"txt height {Num.Height(parsed)} from {txtPath} ({origin})");
                 return parsed;
             }
 

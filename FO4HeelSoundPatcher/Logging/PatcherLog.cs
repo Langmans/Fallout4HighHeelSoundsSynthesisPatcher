@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 
 namespace FO4HeelSoundPatcher.Logging;
@@ -86,7 +85,7 @@ public sealed class PatcherLog : IDisposable
     {
         Count("patched");
         Write(LogVerbosity.Normal, "PATCH ",
-            $"{source,-9} h={Fmt(height)}  {armor}  ->  {addon}  ({via})");
+            $"{source,-9} h={Num.Height(height)}  {armor}  ->  {addon}  ({via})");
     }
 
     /// <summary>One line per record that was considered but left alone.</summary>
@@ -96,8 +95,6 @@ public sealed class PatcherLog : IDisposable
         _skipReasons[reasonKey] = _skipReasons.GetValueOrDefault(reasonKey) + 1;
         Write(LogVerbosity.Detailed, "SKIP  ", message);
     }
-
-    private static string Fmt(float value) => value.ToString("0.00", CultureInfo.InvariantCulture);
 
     // ---------------------------------------------------------------- summary
 
@@ -129,7 +126,7 @@ public sealed class PatcherLog : IDisposable
 
         Always($"  warnings              : {WarningCount}");
         Always($"  errors                : {ErrorCount}");
-        Always($"  elapsed               : {elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)}s");
+        Always($"  elapsed               : {Num.Seconds(elapsed.TotalSeconds)}s");
 
         if (_counters.GetValueOrDefault("patched") == 0)
         {

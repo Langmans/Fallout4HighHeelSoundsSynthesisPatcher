@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text.Json;
 using FO4HeelSoundPatcher.Assets;
 using FO4HeelSoundPatcher.Logging;
-using Mutagen.Bethesda;
 using Mutagen.Bethesda.Fallout4;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Cache;
@@ -185,7 +184,7 @@ public sealed class HhsJsonSource
             return;
         }
 
-        _log.Debug($"'{file}': {formKey} '{addon.EditorID}' -> {added} mesh path(s) at {height:0.00}");
+        _log.Debug($"'{file}': {formKey} '{addon.EditorID}' -> {added} mesh path(s) at {Num.Height(height)}");
     }
 
     private int AddModel(string? modelPath, float height)

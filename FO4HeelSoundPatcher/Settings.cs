@@ -2,6 +2,13 @@ using Mutagen.Bethesda.Fallout4;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Synthesis.Settings;
 
+// Synthesis builds its settings UI by reflecting over this class and persists it as json. Public
+// fields are the shape that whole system is written around, so CA1051 does not apply here.
+[assembly: System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design", "CA1051:Do not declare visible instance fields",
+    Justification = "Synthesis' reflection-driven settings UI expects public fields.",
+    Scope = "namespaceanddescendants", Target = "~N:FO4HeelSoundPatcher")]
+
 namespace FO4HeelSoundPatcher;
 
 public enum LogVerbosity

@@ -2,12 +2,35 @@
 
   <PropertyGroup>
     <Nullable>enable</Nullable>
-    <WarningsAsErrors>nullable</WarningsAsErrors>
     <ImplicitUsings>true</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
     <!-- Noggog's source generator emits an AssemblyVersions type that collides by name with the
          one inside Mutagen.Bethesda.Synthesis. Ours wins and neither is used here. -->
     <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Analyzers">
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Required for IDE0005 (unnecessary usings) to be reported during build, not just in the IDE.
+         See https://github.com/dotnet/roslyn/issues/41640 -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- ...which in turn wants xml docs on every public member. Not worth it for a patcher. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- NuGet Audit is the .NET equivalent of PHP's roave/security-advisories: it checks restored
+       packages against the GitHub Advisory Database. It only warns by default, so promote the
+       findings to build errors - that is what makes it a gate rather than a suggestion.
+         NU1901 low  NU1902 moderate  NU1903 high  NU1904 critical  NU1905 no audit source -->
+  <PropertyGroup Label="Dependency auditing">
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
   </PropertyGroup>
 
 </Project>

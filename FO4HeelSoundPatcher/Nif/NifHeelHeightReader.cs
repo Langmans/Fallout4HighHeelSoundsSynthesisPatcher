@@ -41,7 +41,7 @@ public sealed class NifHeelHeightReader
         var key = DataAssetLocator.Normalize(meshDataPath);
         if (_cache.TryGetValue(key, out var cached))
         {
-            _log.Debug($"nif cache hit: {key} -> {(cached.HasValue ? cached.Value.ToString("0.00") : "none")}");
+            _log.Debug($"nif cache hit: {key} -> {(cached.HasValue ? Num.Height(cached.Value) : "none")}");
             return cached;
         }
 
@@ -101,7 +101,7 @@ public sealed class NifHeelHeightReader
                     continue;
                 }
 
-                _log.Debug($"nif HHS extra data in {meshDataPath}: {block.FloatData:0.00}");
+                _log.Debug($"nif HHS extra data in {meshDataPath}: {Num.Height(block.FloatData)}");
                 return block.FloatData;
             }
 
