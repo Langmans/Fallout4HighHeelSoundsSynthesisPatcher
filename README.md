@@ -1,125 +1,73 @@
 # FO4 High Heel Sounds — Synthesis patcher
 
-Automatically gives high heeled armor its own footstep sound in Fallout 4.
+Gives high heeled armor its own footstep sound, automatically, for your whole load order.
 
 Fallout 4 has no built-in link between "this armor is a heel" and "it should sound like one".
-[High Heel Sounds](https://www.nexusmods.com/fallout4/mods/45345) provides the sound as a
-FootstepSet, but every ArmorAddon has to be pointed at it by hand, one plugin at a time.
+[High Heel Sounds](https://www.nexusmods.com/fallout4/mods/45345) provides the sound, but every
+outfit has to be wired up to it by hand, one plugin at a time — which is why there are only a
+handful of patches for it.
 
-Plenty of mods already record a *heel height*, though — that is what the
+Plenty of mods already record how high their heels are, though: that is what the
 [Fallout 4 High Heels System](https://www.nexusmods.com/fallout4/mods/39850) (HHS) and
-[HO3 / HHSOutfit3](https://www.nexusmods.com/fallout4/mods/82318) use to lift the character. This
-patcher reads that height and assigns the footstep set to the matching ArmorAddon records.
+[HO3](https://www.nexusmods.com/fallout4/mods/82318) use to lift your character. This patcher reads
+that and does the wiring for you.
 
-## Requirements
+## What you need
 
 - [Synthesis](https://github.com/Mutagen-Modding/Synthesis)
-- .NET 10 SDK (to build)
-- `HighHeelSounds.esm` from [High Heel Sounds](https://www.nexusmods.com/fallout4/mods/45345),
-  for the default footstep set. Any other FootstepSet can be selected in the settings instead.
+- [High Heel Sounds](https://www.nexusmods.com/fallout4/mods/45345) — install the **Packed Master
+  Resource** file (`HighHeelSounds.esm` + its BA2) and leave it enabled
 
-The generated patch lists the plugin owning the chosen footstep set as a master — this is
-"Option 1" from that mod's description.
+You do not need HHS or HO3 themselves for the patcher to run, but without one of them installed
+your heels will not actually be raised in game, which rather defeats the point.
 
-## Where heel heights come from
+## Setup
 
-All four sources are read, and all four can be switched off individually. Loose files and BA2
-archives are both searched.
+1. Add the patcher in Synthesis — see [Installing](docs/installing.md).
+2. Run the pipeline. That's it.
 
-| Source | What it looks at |
-|---|---|
-| **HHS json** | `Data\F4SE\Plugins\HHS\*.json`, keyed by mesh path or by plugin + ArmorAddon FormID |
-| **HHS nif** | a `NiFloatExtraData` block named `HHS` inside the mesh itself |
-| **HHS txt** | `<mesh>.txt` next to the mesh containing `Height=13.1`, then `Data\F4SE\Plugins\HHS\<basename>.txt` |
-| **HO3 script** | the `HHSHeight` float property of the `HHSOutfit3` script on an Armor record |
+Run Synthesis through your mod manager (Mod Organizer 2, Vortex) the way you normally would, so it
+can see your mods' meshes and files.
 
-The three HHS sources are tried in that order, which is the order HHS itself resolves them in
-(`Cache::Map::Find` checks the mesh before the txt file, and json entries are pre-seeded into that
-same cache at load time, so json wins). All three identify one specific ArmorAddon, because they
-hang off that addon's world model — including the json `formid` form, which resolves to an
-ArmorAddon and then uses its mesh path. So exactly that addon gets the sound.
+## What it does
 
-The HO3 script is the only source that marks the Armor record as a whole. Fallout 4 has no
-dedicated feet biped slot, so there the configured **heel slots** decide which addons make the
-sound — by default Body (33) and the four leg slots. If no addon covers one of those, the patcher
-falls back to every addon with a world model.
+It looks at every armor in your load order, works out whether it is a heel and how high, and points
+the matching armor pieces at the high heel footstep set. Anything that is not a heel is left alone.
 
-An `HHS` extra data block that exists in a mesh but is not attached to any node is reported as a
-warning and ignored, because HHS walks the node tree and would not see it either.
+Heel heights are picked up from all the places mods put them — text files next to the mesh, HHS json
+files, data inside the mesh itself, and HO3's script — including inside BA2 archives.
 
 ## Settings
 
-**Sound**
-- *Heel footstep set* — defaults to `HHS_HeelFootstepSet` (`0026D8`) from `HighHeelSounds.esm`.
-- *Only patch addons without a footstep set* — off by default, and it should stay off: nearly every
-  Fallout 4 armor addon already points at the vanilla `DefaultFootstepSetXXX`, so turning it on
-  skips almost everything.
+Everything is adjustable in the Synthesis settings panel. The ones people usually touch:
 
-**Detection**
-- One toggle per source.
-- *Minimum heel height* — default `5.0`. Keep it above zero: HO3 deliberately uses `HHSHeight = 0`
-  to mark flat shoes, and its own "Zero HHSHeight" test ring would otherwise start clicking.
-- *Maximum heel height* — `0` means no upper bound.
-- *Heel biped slots*, *fall back to all addons*, and which world models to check.
+- **Minimum heel height** — how high is high enough to click. Default is `5.0`, which skips flats
+  and low heels. Set it lower if you want more armor to make the sound.
+- **Armor name blacklist** — regular expressions matched against the armor's name. For example
+  `/\bboots$/i` stops anything ending in "boots" from getting heel sounds.
+- **Heel footstep set** — swap in a different sound if you use another heel sound mod.
+- **Dry run** — see exactly what would happen without writing anything.
 
-**Filtering**
-- *Armor name blacklist* and *Editor ID blacklist* take regular expressions. Both plain .NET
-  patterns (`\bboots$`) and `/pattern/flags` notation (`/\bboots$/i`) work; supported flags are
-  `i`, `m`, `s` and `x`. A pattern that does not compile is reported as a warning and skipped
-  rather than aborting the run.
-- Plugin and individual Armor blacklists.
+Full list, including the detection toggles and biped slot options:
+[Settings reference](docs/settings.md).
 
-**Logging**
-- *Verbosity* — `Quiet` / `Normal` / `Detailed` / `Debug`. `Detailed` adds a line with the reason
-  for every record that was considered and left alone.
-- *Write a log file* — writes the full run next to the generated patch, always at Debug detail
-  regardless of the console verbosity, so a bad run can be diagnosed afterwards.
-- *Dry run* — do all the detection and logging, write no records.
+## When it doesn't do what you expected
 
-## Reading the log
+The patcher explains itself in the Synthesis output, and writes a full log next to the generated
+patch. Turn **Verbosity** up to `Detailed` and it will name every armor it skipped and why.
 
-Every decision is one line:
+If nothing at all was patched, the summary at the end names the most common reason, which is
+usually the answer.
 
-```
-[PATCH ] HHS-txt   h=17.40  ARMO 028101:SomeMod.esp '_NR_BunnyHeels'  ->  ARMA 0280FF:SomeMod.esp '_AA_NR_BunnyHeels'  (meshes\some path\bunnyheels.txt)
-[PATCH ] HO3       h=7.50   ARMO 006BEC:SomeMod.esp 'SomeArmor'       ->  ARMA 006BED:SomeMod.esp 'SomeArmor_AA'       (script HHSOutfit3:HHSOutfit3, slot match)
-[SKIP  ] ARMO 000401:HHSOutfit3.esl 'HO3_ZeroHeightRing' - HO3 height 0.00 < minimum 5.00
-[SKIP  ] ARMO 0595F5:SomeMod.esp '_NR_Nisha_Boots' - name matches /\bboots$/i
-[WARN  ] Editor ID blacklist: invalid regex 'invalid[regex' ignored - Unterminated [] set.
-```
+[Troubleshooting](docs/troubleshooting.md) covers the common cases.
 
-The run ends with a summary: how many armors were examined, how many heights were found per
-source, how many addons were patched, and the skip reasons grouped by count. If nothing was
-patched it names the most common reason, which is usually the diagnosis.
+## Documentation
 
-## Building and running
-
-```bash
-dotnet build
-```
-
-To run it standalone against a specific load order, copy `.vscode/launch.example.json` to
-`.vscode/launch.json` and fill in your paths, or run it directly:
-
-```bash
-dotnet run --project FO4HeelSoundPatcher -- run-patcher --GameRelease Fallout4 --DataFolderPath "<Data folder>" --LoadOrderFilePath "<plugins.txt>" --OutputPath "<output>/HeelSounds.esp"
-```
-
-If you use a mod manager with a virtual file system (MO2), launch through it — otherwise the
-Data folder only contains the bare game files and none of the mod meshes, txt or json files will
-be found.
-
-Add `--ExtraDataFolder "<folder containing settings.json>"` to test a specific settings file.
-
-## Adding it to Synthesis
-
-During development, add it as a **Local Solution Patcher** pointing at
-`FO4HeelSoundPatcher/FO4HeelSoundPatcher.csproj`.
-
-For normal use, add it as a **Git Repository Patcher** pointing at
-<https://github.com/Langmans/FO4HighHeelSoundsythesisPatcher>, or hand someone
-`FO4HeelSoundPatcher.synth` — double clicking that adds the patcher to the currently selected
-group in the Synthesis UI.
+- [Installing](docs/installing.md) — adding the patcher to Synthesis
+- [Settings reference](docs/settings.md) — every option, and what it changes
+- [Troubleshooting](docs/troubleshooting.md) — when the result is not what you expected
+- [How it works](docs/how-it-works.md) — the detection sources and the reasoning behind them
+- [Development](docs/development.md) — building, running, testing, contributing
 
 ## Credits
 
