@@ -1,0 +1,44 @@
+{
+  // Copy this file to .vscode/launch.json and fill in your own paths.
+  // launch.json itself is gitignored, so personal paths never get committed.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Runs the patcher standalone against an explicit load order.
+      // NOTE: if you use a mod manager with a virtual file system (MO2), launch your editor
+      // through it. Without the VFS, DataFolderPath only sees the bare game Data folder and none
+      // of the mod meshes, txt or json files will be found.
+      "name": "Patch (explicit load order)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/FO4HeelSoundPatcher/bin/Debug/net10.0/FO4HeelSoundPatcher.dll",
+      "args": [
+        "run-patcher",
+        "--GameRelease",
+        "Fallout4",
+        "--DataFolderPath",
+        "<path to your Fallout 4 Data folder>",
+        "--LoadOrderFilePath",
+        "<path to your plugins.txt>",
+        "--OutputPath",
+        "${workspaceFolder}/test-output/HeelSounds.esp"
+      ],
+      "cwd": "${workspaceFolder}/FO4HeelSoundPatcher",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      // Uses the game install and plugins.txt that SetTypicalOpen discovers automatically.
+      "name": "Patch (auto-detected environment)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/FO4HeelSoundPatcher/bin/Debug/net10.0/FO4HeelSoundPatcher.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/FO4HeelSoundPatcher",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "Nickname": "FO4 High Heel Sounds",
+  "Visibility": "Visible",
+  "OneLineDescription": "Adds high heel footstep sounds to armor that HHS or HO3 already marks as heels",
+  "LongDescription": "Automatically sets the ArmorAddon footstep set to the high heel footstep set from 'High Heel Sounds' (https://www.nexusmods.com/fallout4/mods/45345) for every armor that already carries a heel height.\n\nHeel heights are read from four sources:\n- HHS txt files next to the mesh (Height=13.1)\n- HHS json files in Data/F4SE/Plugins/HHS\n- HHS NiFloatExtraData named 'HHS' inside the mesh\n- HO3 / HHSOutfit3 VMAD script property 'HHSHeight' on the Armor record\n\nBoth loose files and BA2 archives are searched. Configurable minimum/maximum heel height, per-source toggles, regex blacklists on armor name and editor id, biped slot filtering and a dry run mode.\n\nRequires 'High Heel Sounds' (HighHeelSounds.esm) for the default footstep set, but any FootstepSet can be selected in the settings.",
+  "PreferredAutoVersioning": "Default",
+  "RequiredMods": [
+    "HighHeelSounds.esm"
+  ],
+  "TargetedReleases": [
+    "Fallout4"
+  ]
+}

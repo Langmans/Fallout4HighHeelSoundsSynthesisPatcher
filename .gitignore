@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+
+# Personal run configuration (contains local game/profile paths).
+# Copy .vscode/launch.example.json to .vscode/launch.json and fill in your own paths.
+.vscode/launch.json

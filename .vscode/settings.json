@@ -1,0 +1,26 @@
+{
+  "dotnet.defaultSolution": "FO4HeelSoundPatcher.sln",
+  "dotnet.server.useOmnisharp": false,
+  "omnisharp.enableRoslynAnalyzers": true,
+  "editor.formatOnSave": true,
+  "editor.insertSpaces": true,
+  "editor.tabSize": 4,
+  "editor.rulers": [110],
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.encoding": "utf8",
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "search.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp"
+  },
+  "[json]": {
+    "editor.tabSize": 2
+  }
+}
