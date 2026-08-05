@@ -1,3 +1,4 @@
+using System.Globalization;
 using FO4HeelSoundPatcher.Logging;
 using Mutagen.Bethesda.Fallout4;
 
@@ -55,20 +56,29 @@ public sealed class Ho3ScriptSource
                 if (!string.Equals(property.Name, HeightPropertyName, StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                // HO3 declares HHSHeight as a Float auto-property, but any numeric form converts
+                // cleanly, so take whatever is there. The type is noted in the log only because it
+                // is worth knowing if such an armor ever turns out to have no height in game -
+                // whether the VM coerces a mismatched VMAD property type is not something this
+                // patcher can check.
                 switch (property)
                 {
                     case IScriptFloatPropertyGetter floatProperty:
                         return new HeelHeight(floatProperty.Data, SourceName, $"script {script.Name}");
 
-                    // HO3 declares HHSHeight as a Float auto-property, so an int here is a mistake
-                    // in the patch. Use the value anyway, but say so - if the game refuses to bind
-                    // the mismatched type the armor gets no height in game and this is the reason.
                     case IScriptIntPropertyGetter intProperty:
-                        _log.Warn(
+                        _log.Detail(
                             $"{armor.FormKey} '{armor.EditorID}': '{HeightPropertyName}' is stored as " +
-                            $"an int but {Ho3ScriptName} declares it Float. Using {intProperty.Data}, " +
-                            "but the patch should be corrected.");
+                            $"an int ({intProperty.Data}) where {Ho3ScriptName} declares Float");
                         return new HeelHeight(intProperty.Data, SourceName, $"script {script.Name} (int)");
+
+                    case IScriptStringPropertyGetter stringProperty
+                        when float.TryParse(
+                            stringProperty.Data, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed):
+                        _log.Detail(
+                            $"{armor.FormKey} '{armor.EditorID}': '{HeightPropertyName}' is stored as " +
+                            $"a string (\"{stringProperty.Data}\") where {Ho3ScriptName} declares Float");
+                        return new HeelHeight(parsed, SourceName, $"script {script.Name} (string)");
 
                     default:
                         _log.Warn(
