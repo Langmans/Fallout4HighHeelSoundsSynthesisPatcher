@@ -20,10 +20,17 @@ public sealed class Ho3ScriptSource
     private const string HeightPropertyName = "HHSHeight";
 
     /// <summary>
-    /// Script names that carry an HHSHeight property. The VMAD stores the script name, which for
-    /// HO3 is plain "HHSOutfit3"; niston's older hhsOutfit2 uses the same property name.
+    /// The script HO3 attaches. Its compiled name is <c>HHSOutfit3:HHSOutfit3</c>
+    /// (<c>Scripts\HHSOutfit3\HHSOutfit3.pex</c>), so the VMAD entry can carry either the bare or
+    /// the namespaced form.
     /// </summary>
-    private static readonly string[] ScriptNames = ["HHSOutfit3", "hhsOutfit2", "HHSOutfit"];
+    private const string Ho3ScriptName = "HHSOutfit3";
+
+    /// <summary>
+    /// Older/related scripts that may expose the same property. Unlike the HO3 script itself these
+    /// are not verified, so a missing property on one of them is not worth warning about.
+    /// </summary>
+    private static readonly string[] RelatedScriptNames = ["hhsOutfit2", "HHSOutfit"];
 
     private readonly PatcherLog _log;
 
@@ -36,7 +43,12 @@ public sealed class Ho3ScriptSource
 
         foreach (var script in scripts)
         {
-            if (!IsHeelScript(script.Name)) continue;
+            var bareName = BareScriptName(script.Name);
+            var isHo3 = string.Equals(bareName, Ho3ScriptName, StringComparison.OrdinalIgnoreCase);
+            var isRelated = RelatedScriptNames.Any(
+                candidate => string.Equals(bareName, candidate, StringComparison.OrdinalIgnoreCase));
+
+            if (!isHo3 && !isRelated) continue;
 
             foreach (var property in script.Properties)
             {
@@ -48,35 +60,47 @@ public sealed class Ho3ScriptSource
                     case IScriptFloatPropertyGetter floatProperty:
                         return new HeelHeight(floatProperty.Data, SourceName, $"script {script.Name}");
 
-                    // Some patches store a whole number as an int property instead.
+                    // HO3 declares HHSHeight as a Float auto-property, so an int here is a mistake
+                    // in the patch. Use the value anyway, but say so - if the game refuses to bind
+                    // the mismatched type the armor gets no height in game and this is the reason.
                     case IScriptIntPropertyGetter intProperty:
+                        _log.Warn(
+                            $"{armor.FormKey} '{armor.EditorID}': '{HeightPropertyName}' is stored as " +
+                            $"an int but {Ho3ScriptName} declares it Float. Using {intProperty.Data}, " +
+                            "but the patch should be corrected.");
                         return new HeelHeight(intProperty.Data, SourceName, $"script {script.Name} (int)");
 
                     default:
                         _log.Warn(
-                            $"{armor.FormKey} '{armor.EditorID}': script '{script.Name}' has an " +
-                            $"{HeightPropertyName} property of unexpected type {property.GetType().Name}");
+                            $"{armor.FormKey} '{armor.EditorID}': script '{script.Name}' has a " +
+                            $"'{HeightPropertyName}' property of unusable type {property.GetType().Name}");
                         break;
                 }
             }
 
-            _log.Warn(
-                $"{armor.FormKey} '{armor.EditorID}': script '{script.Name}' is attached but has no " +
-                $"usable '{HeightPropertyName}' property");
+            if (isHo3)
+            {
+                _log.Warn(
+                    $"{armor.FormKey} '{armor.EditorID}': the {Ho3ScriptName} script is attached but " +
+                    $"has no usable '{HeightPropertyName}' property");
+            }
+            else
+            {
+                _log.Detail(
+                    $"{armor.FormKey} '{armor.EditorID}': script '{script.Name}' has no " +
+                    $"'{HeightPropertyName}' property");
+            }
         }
 
         return null;
     }
 
-    private static bool IsHeelScript(string? name)
+    /// <summary>xEdit shows these as "HHSOutfit3:HHSOutfit3"; take the part after the last colon.</summary>
+    private static string BareScriptName(string? name)
     {
-        if (string.IsNullOrEmpty(name)) return false;
+        if (string.IsNullOrEmpty(name)) return string.Empty;
 
-        // xEdit shows these as "HHSOutfit3:HHSOutfit3"; take the part after the last colon.
-        var bare = name;
-        var colon = bare.LastIndexOf(':');
-        if (colon >= 0 && colon < bare.Length - 1) bare = bare[(colon + 1)..];
-
-        return ScriptNames.Any(candidate => string.Equals(bare, candidate, StringComparison.OrdinalIgnoreCase));
+        var colon = name.LastIndexOf(':');
+        return colon >= 0 && colon < name.Length - 1 ? name[(colon + 1)..] : name;
     }
 }
