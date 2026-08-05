@@ -84,7 +84,7 @@ public sealed class HeelSoundPatcher
 
         var modBlacklist = _settings.Filtering.ModBlacklist.ToHashSet();
         var armorBlacklist = _settings.Filtering.ArmorBlacklist.Select(x => x.FormKey).ToHashSet();
-        var heelSlots = CombineSlots(_settings.Detection.HeelSlots);
+        var heelSlots = _settings.Detection.HeelSlots.ToFlags();
 
         log.Info(
             $"Heel slots: {(heelSlots == 0 ? "<none configured>" : heelSlots.ToString())}");
@@ -422,13 +422,6 @@ public sealed class HeelSoundPatcher
         return string.IsNullOrEmpty(directory)
             ? fileName
             : Path.Combine(directory, fileName);
-    }
-
-    private static BipedObjectFlag CombineSlots(IEnumerable<BipedObjectFlag> slots)
-    {
-        BipedObjectFlag combined = 0;
-        foreach (var slot in slots) combined |= slot;
-        return combined;
     }
 
     private static string Describe(IArmorGetter armor) =>

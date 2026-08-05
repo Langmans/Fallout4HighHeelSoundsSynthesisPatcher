@@ -116,17 +116,17 @@ public class DetectionSettings
     [SynthesisOrder]
     [SynthesisSettingName("Heel biped slots")]
     [SynthesisTooltip(
-        "Only used when the heel height was found on the Armor record itself (HO3 script, or a json " +
-        "entry keyed by FormID) rather than on a specific mesh. In that case only the ArmorAddons " +
-        "covering one of these slots get the sound.\n\n" +
+        "Only used when the heel height was found on the Armor record itself (the HO3 script) " +
+        "rather than on a specific mesh. In that case only the ArmorAddons covering one of these " +
+        "slots get the sound.\n\n" +
         "Fallout 4 has no dedicated feet slot, so heels normally live in Body (33) or the leg slots.")]
-    public List<BipedObjectFlag> HeelSlots = new()
+    public List<HeelBipedSlot> HeelSlots = new()
     {
-        BipedObjectFlag.Body,
-        BipedObjectFlag.LeftLegUnderArmor,
-        BipedObjectFlag.RightLegUnderArmor,
-        BipedObjectFlag.LeftLegArmor,
-        BipedObjectFlag.RightLegArmor,
+        HeelBipedSlot.Slot33_Body,
+        HeelBipedSlot.Slot39_LeftLegUnderArmor,
+        HeelBipedSlot.Slot40_RightLegUnderArmor,
+        HeelBipedSlot.Slot44_LeftLegArmor,
+        HeelBipedSlot.Slot45_RightLegArmor,
     };
 
     [SynthesisOrder]
