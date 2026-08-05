@@ -53,15 +53,20 @@ public sealed class DataAssetLocator
 
     /// <summary>
     /// Turns a world model path from an ArmorAddon record into a Data-relative path.
-    /// Record paths are normally relative to <c>meshes\</c>, but some mods store the prefix anyway,
-    /// so it is only prepended when it is actually missing.
+    /// <para>
+    /// Mirrors HHS's own <c>File::GetRelativeDir</c>: a path that already starts with
+    /// <c>meshes\</c> is kept, a leading <c>data\</c> is stripped, and anything else gets
+    /// <c>meshes\</c> prepended.
+    /// </para>
     /// </summary>
     public static string ToMeshDataPath(string worldModelPath)
     {
         var normalized = Normalize(worldModelPath);
-        return normalized.StartsWith("meshes\\", StringComparison.Ordinal)
-            ? normalized
-            : "meshes\\" + normalized;
+
+        if (normalized.StartsWith("meshes\\", StringComparison.Ordinal)) return normalized;
+        if (normalized.StartsWith("data\\", StringComparison.Ordinal)) return normalized["data\\".Length..];
+
+        return "meshes\\" + normalized;
     }
 
     public bool Exists(string dataRelativePath)

@@ -135,6 +135,37 @@ Extra data can hang off a shape *or* off the root `NiNode` or a bone node. Scann
 `nif.Blocks.OfType<T>()` covers all of them; walking only `shape.ExtraData` misses meshes that put
 it on the root, which is common.
 
+**The block has to be attached to something.** HHS (`Skeleton::Reader::Visit` in
+[P-K-0/HHS](https://github.com/P-K-0/HHS)) walks the node tree from the root objects and only reads
+extra data hanging off each `NiAVObject`. A block that exists in the file but is not referenced from
+any node's extra data list is invisible to it — and that is exactly what NifSkope's "insert block"
+leaves behind if the user forgets to link it. Verify with `nif.GetBlockIndex(block, out var i)` plus
+`nif.IsBlockReferenced(i)` before trusting a value.
+
+### HHS lookup order (Fallout 4)
+
+Reading the plugin source is the only reliable way to get this right. `Cache::Map::Find` tries the
+nif extra data first and only falls back to the txt file when that returns zero — but the json
+entries are pre-seeded into the same cache at load time and the first write wins, so the effective
+order is:
+
+1. **json** — `Data\F4SE\Plugins\HHS\*.json`
+2. **nif** — `NiFloatExtraData` named `HHS`
+3. **txt** — `<mesh>.txt`, then a flat fallback at `Data\F4SE\Plugins\HHS\<basename>.txt`
+
+A height of exactly `0` means "no heel" everywhere in HHS, not "zero height".
+
+The txt parser is `regex_search` on `height\s*=\s*(-?(?:\d*\.\d+|\d+))`, case insensitive — so
+negatives are allowed and the key can sit anywhere in the file.
+
+In the json form, an entry with a non-empty `key` is a mesh path; otherwise `formid` is looked up
+as an **ArmorAddon** (`TESObjectARMA`, not an Armor) and its world model path is used, so both
+forms end up keyed on a mesh path. `gender` picks the model: 0 male, 1 female, 2 both, 3 an object
+modification's material swap model.
+
+Mesh paths are normalised by `File::GetRelativeDir`: keep a leading `meshes\`, strip a leading
+`data\`, otherwise prepend `meshes\`.
+
 ## Quick inspection without C#
 
 Dumping the printable strings near the start of the file shows the block type table and string

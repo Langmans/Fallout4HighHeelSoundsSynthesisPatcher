@@ -28,18 +28,24 @@ archives are both searched.
 
 | Source | What it looks at |
 |---|---|
-| **HHS txt** | `meshes\<path>\<name>.txt` next to the mesh, containing `Height=13.1` |
-| **HHS json** | `Data\F4SE\Plugins\HHS\*.json`, keyed by mesh path or by plugin + FormID |
+| **HHS json** | `Data\F4SE\Plugins\HHS\*.json`, keyed by mesh path or by plugin + ArmorAddon FormID |
 | **HHS nif** | a `NiFloatExtraData` block named `HHS` inside the mesh itself |
+| **HHS txt** | `<mesh>.txt` next to the mesh containing `Height=13.1`, then `Data\F4SE\Plugins\HHS\<basename>.txt` |
 | **HO3 script** | the `HHSHeight` float property of the `HHSOutfit3` script on an Armor record |
 
-The first three identify one specific ArmorAddon, because they hang off that addon's world model,
-so exactly that addon gets the sound.
+The three HHS sources are tried in that order, which is the order HHS itself resolves them in
+(`Cache::Map::Find` checks the mesh before the txt file, and json entries are pre-seeded into that
+same cache at load time, so json wins). All three identify one specific ArmorAddon, because they
+hang off that addon's world model — including the json `formid` form, which resolves to an
+ArmorAddon and then uses its mesh path. So exactly that addon gets the sound.
 
-The HO3 script (and a json entry keyed by FormID) only says "this Armor is a heel". Fallout 4 has
-no dedicated feet biped slot, so in that case the configured **heel slots** decide which addons
-make the sound — by default Body (33) and the four leg slots. If no addon covers one of those,
-the patcher falls back to every addon with a world model.
+The HO3 script is the only source that marks the Armor record as a whole. Fallout 4 has no
+dedicated feet biped slot, so there the configured **heel slots** decide which addons make the
+sound — by default Body (33) and the four leg slots. If no addon covers one of those, the patcher
+falls back to every addon with a world model.
+
+An `HHS` extra data block that exists in a mesh but is not attached to any node is reported as a
+warning and ignored, because HHS walks the node tree and would not see it either.
 
 ## Settings
 

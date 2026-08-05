@@ -73,7 +73,7 @@ public sealed class HeelSoundPatcher
         var nifReader = new NifHeelHeightReader(assets, log);
         var txtSource = new HhsTxtSource(assets, log);
         var jsonSource = _settings.Detection.EnableHhsJson
-            ? new HhsJsonSource(assets, log)
+            ? new HhsJsonSource(assets, _state.LinkCache, log)
             : null;
         var ho3Source = new Ho3ScriptSource(log);
 
@@ -234,20 +234,11 @@ public sealed class HeelSoundPatcher
 
         if (targets.Count > 0) return targets;
 
-        // Nothing per-mesh; fall back to the record-level sources.
-        HeelHeight? recordHeight = null;
+        // Nothing per-mesh. HO3 is the only source that marks the Armor record as a whole - the
+        // HHS json "formid" form resolves to an ArmorAddon world model and is handled above.
+        if (!_settings.Detection.EnableHo3Script) return targets;
 
-        if (_settings.Detection.EnableHo3Script) recordHeight = ho3Source.TryGetHeight(armor);
-        recordHeight ??= jsonSource?.TryGetByFormKey(armor.FormKey);
-        if (recordHeight is null && jsonSource is not null)
-        {
-            foreach (var addon in addons)
-            {
-                recordHeight = jsonSource.TryGetByFormKey(addon.FormKey);
-                if (recordHeight is not null) break;
-            }
-        }
-
+        var recordHeight = ho3Source.TryGetHeight(armor);
         if (recordHeight is null) return targets;
 
         if (!WithinRange(recordHeight.Value, armor, null, log)) return targets;
@@ -289,18 +280,18 @@ public sealed class HeelSoundPatcher
         return targets;
     }
 
+    /// <summary>
+    /// Order matters and is taken from HHS itself. Its json entries are pre-seeded into the same
+    /// cache that the mesh lookups later fill, and the first write wins, so json beats everything.
+    /// After that <c>Cache::Map::Find</c> tries the nif extra data and only falls back to the txt
+    /// file when that yields zero.
+    /// </summary>
     private HeelHeight? FindMeshHeight(
         string meshPath,
         HhsTxtSource txtSource,
         HhsJsonSource? jsonSource,
         NifHeelHeightReader nifReader)
     {
-        if (_settings.Detection.EnableHhsTxt)
-        {
-            var fromTxt = txtSource.TryGetHeight(meshPath);
-            if (fromTxt is not null) return fromTxt;
-        }
-
         if (jsonSource is not null)
         {
             var fromJson = jsonSource.TryGetByMesh(meshPath);
@@ -311,6 +302,12 @@ public sealed class HeelSoundPatcher
         {
             var fromNif = nifReader.TryGetHeight(meshPath);
             if (fromNif is not null) return new HeelHeight(fromNif.Value, "HHS-nif", meshPath);
+        }
+
+        if (_settings.Detection.EnableHhsTxt)
+        {
+            var fromTxt = txtSource.TryGetHeight(meshPath);
+            if (fromTxt is not null) return fromTxt;
         }
 
         return null;

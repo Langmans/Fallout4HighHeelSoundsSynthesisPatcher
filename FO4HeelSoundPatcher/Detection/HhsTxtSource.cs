@@ -8,8 +8,10 @@ namespace FO4HeelSoundPatcher.Detection;
 /// The classic HHS method: a .txt file next to the mesh with the same base name, containing a line
 /// like <c>Height=13.1</c>.
 /// <para>
-/// So <c>meshes\some\path\heels.nif</c> is accompanied by <c>meshes\some\path\heels.txt</c>. The
-/// file names have to match exactly; HHS itself is case insensitive about the key.
+/// So <c>meshes\some\path\heels.nif</c> is accompanied by <c>meshes\some\path\heels.txt</c>.
+/// HHS also accepts a flat fallback in <c>Data\F4SE\Plugins\HHS\&lt;basename&gt;.txt</c>, keyed on
+/// the file name alone, and checks it second (see <c>Text::GetHeightFromText</c> in the HHS
+/// source). Both locations are tried here, in that order.
 /// </para>
 /// </summary>
 public sealed class HhsTxtSource
@@ -26,17 +28,25 @@ public sealed class HhsTxtSource
         _log = log;
     }
 
+    private const string HhsF4seFolder = "f4se\\plugins\\hhs\\";
+
     public HeelHeight? TryGetHeight(string meshDataPath)
     {
-        var txtPath = Path.ChangeExtension(DataAssetLocator.Normalize(meshDataPath), ".txt");
+        var besideMesh = Path.ChangeExtension(DataAssetLocator.Normalize(meshDataPath), ".txt");
+        var inF4seFolder = HhsF4seFolder + Path.GetFileName(besideMesh);
 
-        if (!_cache.TryGetValue(txtPath, out var height))
+        foreach (var txtPath in new[] { besideMesh, inF4seFolder })
         {
-            height = Read(txtPath);
-            _cache[txtPath] = height;
+            if (!_cache.TryGetValue(txtPath, out var height))
+            {
+                height = Read(txtPath);
+                _cache[txtPath] = height;
+            }
+
+            if (height.HasValue) return new HeelHeight(height.Value, SourceName, txtPath);
         }
 
-        return height.HasValue ? new HeelHeight(height.Value, SourceName, txtPath) : null;
+        return null;
     }
 
     private float? Read(string txtPath)

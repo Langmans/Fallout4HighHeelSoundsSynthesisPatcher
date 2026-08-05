@@ -90,6 +90,17 @@ public sealed class NifHeelHeightReader
                 if (!string.Equals(block.Name?.String, HhsExtraDataName, StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                // HHS walks the node tree and reads the extra data hanging off each NiAVObject, so
+                // a block that exists but is not linked into any node gives no height in game.
+                // NifSkope's "insert block" leaves exactly that kind of orphan behind.
+                if (nif.GetBlockIndex(block, out var index) && !nif.IsBlockReferenced(index))
+                {
+                    _log.Warn(
+                        $"nif has an '{HhsExtraDataName}' extra data block that is not attached to " +
+                        $"any node, so HHS ignores it: {meshDataPath}");
+                    continue;
+                }
+
                 _log.Debug($"nif HHS extra data in {meshDataPath}: {block.FloatData:0.00}");
                 return block.FloatData;
             }

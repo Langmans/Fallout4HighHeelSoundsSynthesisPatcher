@@ -2,21 +2,33 @@ using System.Globalization;
 using System.Text.Json;
 using FO4HeelSoundPatcher.Assets;
 using FO4HeelSoundPatcher.Logging;
+using Mutagen.Bethesda;
+using Mutagen.Bethesda.Fallout4;
 using Mutagen.Bethesda.Plugins;
+using Mutagen.Bethesda.Plugins.Cache;
 
 namespace FO4HeelSoundPatcher.Detection;
 
 /// <summary>
-/// The HHS json method: one or more files in <c>Data\F4SE\Plugins\HHS</c> replacing a pile of .txt
-/// files. Every top level key is a group holding an array of entries, and entries come in two
-/// shapes (see <c>template.json</c> in the "Resources for modders" download):
+/// The HHS json method: files in <c>Data\F4SE\Plugins\HHS</c> replacing a pile of .txt files. Every
+/// top level key is a group holding an array of entries, and entries come in two shapes (see
+/// <c>template.json</c> in the "Resources for modders" download):
 /// <code>
 /// {
 ///   "Myshoes1" : [ { "key" : "MyShoes1\\MyShoes.nif", "value" : 10 } ],
 ///   "MyShoes.esp" : [ { "formid" : "00800", "gender" : 1, "value" : 10 } ]
 /// }
 /// </code>
-/// The first shape keys on a mesh path, the second on the plugin (the group name) plus a FormID.
+/// <para>
+/// Both shapes end up meaning the same thing. HHS keys its cache purely on mesh path: a <c>key</c>
+/// entry gives the path directly, and a <c>formid</c> entry is resolved to an <b>ArmorAddon</b>
+/// (not an Armor) whose world model path is then used. So this source is resolved down to mesh
+/// paths up front, exactly like <c>JsonParser::HeightFile</c> does.
+/// </para>
+/// <para>
+/// <c>gender</c> selects which world model: 0 male, 1 female, 2 both. Value 3 means an object
+/// modification's material swap model, which is out of scope here and is logged and skipped.
+/// </para>
 /// </summary>
 public sealed class HhsJsonSource
 {
@@ -26,16 +38,12 @@ public sealed class HhsJsonSource
 
     private readonly PatcherLog _log;
 
-    /// <summary>Normalised mesh path (with and without the meshes\ prefix) -> height.</summary>
+    /// <summary>Normalised mesh path -> height.</summary>
     private readonly Dictionary<string, float> _byMesh = new(StringComparer.Ordinal);
 
-    /// <summary>FormKey of the Armor or ArmorAddon -> height.</summary>
-    private readonly Dictionary<FormKey, float> _byFormKey = new();
+    public int EntryCount => _byMesh.Count;
 
-    public int MeshEntryCount => _byMesh.Count;
-    public int FormKeyEntryCount => _byFormKey.Count;
-
-    public HhsJsonSource(DataAssetLocator assets, PatcherLog log)
+    public HhsJsonSource(DataAssetLocator assets, ILinkCache linkCache, PatcherLog log)
     {
         _log = log;
 
@@ -56,7 +64,7 @@ public sealed class HhsJsonSource
 
             try
             {
-                Load(text, file);
+                Load(text, file, linkCache);
                 _log.Info($"Loaded HHS json '{file}' ({origin})");
             }
             catch (JsonException ex)
@@ -65,7 +73,7 @@ public sealed class HhsJsonSource
             }
         }
 
-        _log.Info($"HHS json: {_byMesh.Count} mesh entries, {_byFormKey.Count} FormID entries");
+        _log.Info($"HHS json: {_byMesh.Count} mesh entries");
     }
 
     public HeelHeight? TryGetByMesh(string meshDataPath)
@@ -76,14 +84,7 @@ public sealed class HhsJsonSource
             : null;
     }
 
-    public HeelHeight? TryGetByFormKey(FormKey formKey)
-    {
-        return _byFormKey.TryGetValue(formKey, out var height)
-            ? new HeelHeight(height, SourceName, formKey.ToString())
-            : null;
-    }
-
-    private void Load(string text, string file)
+    private void Load(string text, string file, ILinkCache linkCache)
     {
         var options = new JsonDocumentOptions
         {
@@ -106,72 +107,99 @@ public sealed class HhsJsonSource
                 continue;
             }
 
-            var groupModKey = TryParseModKey(group.Name);
-
             foreach (var entry in group.Value.EnumerateArray())
             {
                 if (entry.ValueKind != JsonValueKind.Object) continue;
                 if (!TryGetValue(entry, out var height)) continue;
 
-                if (entry.TryGetProperty("key", out var meshKey) && meshKey.ValueKind == JsonValueKind.String)
+                // HHS treats a present, non-empty "key" as the mesh path and only falls back to
+                // "formid" otherwise.
+                if (entry.TryGetProperty("key", out var meshKey) &&
+                    meshKey.ValueKind == JsonValueKind.String &&
+                    !string.IsNullOrEmpty(meshKey.GetString()))
                 {
-                    AddMeshEntry(meshKey.GetString(), height);
+                    AddMeshEntry(meshKey.GetString()!, height);
                     continue;
                 }
 
                 if (entry.TryGetProperty("formid", out var formIdElement))
                 {
-                    if (groupModKey is null)
-                    {
-                        _log.Warn(
-                            $"'{file}': group '{group.Name}' has FormID entries but its name is not a " +
-                            "plugin filename, so they cannot be resolved");
-                        continue;
-                    }
-
-                    AddFormIdEntry(groupModKey.Value, formIdElement, entry, height, file, group.Name);
+                    AddFormIdEntry(group.Name, formIdElement, entry, height, file, linkCache);
                 }
             }
         }
     }
 
-    private void AddMeshEntry(string? rawPath, float height)
+    private void AddMeshEntry(string rawPath, float height)
     {
         if (string.IsNullOrWhiteSpace(rawPath)) return;
-
-        // HHS writes these relative to meshes\, but be lenient and index both forms so a lookup
-        // succeeds whichever way the record path turned out.
-        var normalized = DataAssetLocator.Normalize(rawPath);
-        Upsert(_byMesh, normalized, height);
-        Upsert(_byMesh, DataAssetLocator.ToMeshDataPath(rawPath), height);
+        Upsert(DataAssetLocator.ToMeshDataPath(rawPath), height);
     }
 
     private void AddFormIdEntry(
-        ModKey modKey,
+        string groupName,
         JsonElement formIdElement,
         JsonElement entry,
         float height,
         string file,
-        string groupName)
+        ILinkCache linkCache)
     {
+        if (!ModKey.TryFromFileName(groupName, out var modKey))
+        {
+            _log.Warn(
+                $"'{file}': group '{groupName}' has FormID entries but its name is not a plugin " +
+                "filename, so they cannot be resolved");
+            return;
+        }
+
         if (!TryParseFormId(formIdElement, out var formId))
         {
             _log.Warn($"'{file}': group '{groupName}' has an unparsable formid '{formIdElement}'");
             return;
         }
 
-        if (entry.TryGetProperty("gender", out var gender) && gender.ValueKind == JsonValueKind.Number)
-            _log.Debug($"'{file}': {modKey}|{formId:X6} gender={gender} (gender is not used for filtering)");
+        var formKey = new FormKey(modKey, formId);
+        var gender = entry.TryGetProperty("gender", out var genderElement) && genderElement.ValueKind == JsonValueKind.Number
+            ? genderElement.GetInt32()
+            : 1;
 
-        Upsert(_byFormKey, new FormKey(modKey, formId), height);
+        if (gender == 3)
+        {
+            _log.Detail($"'{file}': {formKey} uses gender 3 (object modification model), not supported");
+            return;
+        }
+
+        if (!linkCache.TryResolve<IArmorAddonGetter>(formKey, out var addon))
+        {
+            _log.Detail($"'{file}': {formKey} does not resolve to an ArmorAddon, skipped");
+            return;
+        }
+
+        var added = 0;
+        if (gender is 0 or 2) added += AddModel(addon.WorldModel?.Male?.File, height);
+        if (gender is 1 or 2) added += AddModel(addon.WorldModel?.Female?.File, height);
+
+        if (added == 0)
+        {
+            _log.Detail($"'{file}': {formKey} '{addon.EditorID}' has no world model for gender {gender}");
+            return;
+        }
+
+        _log.Debug($"'{file}': {formKey} '{addon.EditorID}' -> {added} mesh path(s) at {height:0.00}");
     }
 
-    /// <summary>Keeps the highest height when the same key shows up more than once.</summary>
-    private static void Upsert<TKey>(Dictionary<TKey, float> target, TKey key, float height)
-        where TKey : notnull
+    private int AddModel(string? modelPath, float height)
     {
-        if (target.TryGetValue(key, out var existing) && existing >= height) return;
-        target[key] = height;
+        if (string.IsNullOrWhiteSpace(modelPath)) return 0;
+        Upsert(DataAssetLocator.ToMeshDataPath(modelPath), height);
+        return 1;
+    }
+
+    /// <summary>Keeps the highest height when the same mesh shows up more than once.</summary>
+    private void Upsert(string key, float height)
+    {
+        if (_byMesh.TryGetValue(key, out var existing) && existing >= height) return;
+        _byMesh[key] = height;
     }
 
     private static bool TryGetValue(JsonElement entry, out float height)
@@ -216,13 +244,9 @@ public sealed class HhsJsonSource
                 return false;
         }
 
-        // Only the object part is meaningful; the load order index is whatever it is at runtime.
+        // HHS parses the id as bare hex and ORs in the load order index itself, so only the object
+        // part is meaningful here.
         formId &= 0x00FFFFFF;
         return true;
-    }
-
-    private static ModKey? TryParseModKey(string groupName)
-    {
-        return ModKey.TryFromFileName(groupName, out var modKey) ? modKey : (ModKey?)null;
     }
 }
