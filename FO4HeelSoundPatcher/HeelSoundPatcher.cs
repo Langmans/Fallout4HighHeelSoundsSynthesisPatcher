@@ -67,13 +67,17 @@ public sealed class HeelSoundPatcher
 
         log.Info($"Heel footstep set: {footstepSet.FormKey} '{footstepSetRecord.EditorID}'");
 
+        var order = HeightSourceOrder.Resolve(
+            _settings.Detection.UseDefaultSourceOrder, _settings.Detection.SourcePriority, out var why);
+        log.Info($"Detection order: {string.Join(" -> ", order)}  ({why})");
+
         var assets = new DataAssetLocator(_state.DataFolderPath, log);
-        var nifReader = new NifHeelHeightReader(assets, log);
-        var txtSource = new HhsTxtSource(assets, log);
-        var jsonSource = _settings.Detection.EnableHhsJson
-            ? new HhsJsonSource(assets, _state.LinkCache, log)
-            : null;
-        var ho3Source = new Ho3ScriptSource(log);
+        var sources = new DetectionSources(
+            Order: order,
+            Txt: order.Contains(HeightSource.HhsTxt) ? new HhsTxtSource(assets, log) : null,
+            Json: order.Contains(HeightSource.HhsJson) ? new HhsJsonSource(assets, _state.LinkCache, log) : null,
+            Nif: order.Contains(HeightSource.HhsNif) ? new NifHeelHeightReader(assets, log) : null,
+            Ho3: order.Contains(HeightSource.Ho3Script) ? new Ho3ScriptSource(log) : null);
 
         var nameBlacklist = new RegexBlacklist(
             "Armor name blacklist", _settings.Filtering.ArmorNameBlacklist,
@@ -120,7 +124,7 @@ public sealed class HeelSoundPatcher
                 continue;
             }
 
-            var targets = FindTargets(armor, addons, txtSource, jsonSource, nifReader, ho3Source, heelSlots, log);
+            var targets = FindTargets(armor, addons, sources, heelSlots, log);
             if (targets.Count == 0) continue;
 
             log.Count("armors_with_height");
@@ -139,7 +143,8 @@ public sealed class HeelSoundPatcher
 
         log.CurrentContext = null;
         log.Info(string.Empty);
-        log.Info($"Meshes opened: {nifReader.MeshesOpened}, fully parsed: {nifReader.MeshesFullyParsed}");
+        if (sources.Nif is { } nif)
+            log.Info($"Meshes opened: {nif.MeshesOpened}, fully parsed: {nif.MeshesFullyParsed}");
         log.WriteSummary();
     }
 
@@ -196,30 +201,35 @@ public sealed class HeelSoundPatcher
     }
 
     /// <summary>
-    /// Works out which addons should get the sound.
+    /// Works out which addons should get the sound, consulting the sources in the configured order
+    /// and stopping at the first that has an answer.
     /// <para>
-    /// Mesh-based sources (txt / nif / json-by-mesh) tell us about one specific addon, so those are
-    /// used as-is. Record-based sources (the HO3 script, or a json entry keyed by FormID) only say
-    /// "this armor is a heel", so the biped slots decide which addons make the sound.
+    /// The mesh sources hang off one specific addon's model, so they name their own target. The HO3
+    /// script marks the whole Armor instead, and the biped slots decide which of its addons make
+    /// the sound. Where HO3 sits in the order therefore decides whether it overrides mesh data or
+    /// only fills the gaps.
     /// </para>
     /// </summary>
     private List<(IArmorAddonGetter Addon, HeelHeight Height)> FindTargets(
         IArmorGetter armor,
         List<IArmorAddonGetter> addons,
-        HhsTxtSource txtSource,
-        HhsJsonSource? jsonSource,
-        NifHeelHeightReader nifReader,
-        Ho3ScriptSource ho3Source,
+        DetectionSources sources,
         BipedObjectFlag heelSlots,
         PatcherLog log)
     {
+        if (sources.Ho3IsFirst)
+        {
+            var fromScript = FindRecordTargets(armor, addons, sources, heelSlots, log);
+            if (fromScript.Count > 0) return fromScript;
+        }
+
         var targets = new List<(IArmorAddonGetter, HeelHeight)>();
 
         foreach (var addon in addons)
         {
             foreach (var meshPath in MeshPaths(addon))
             {
-                var height = FindMeshHeight(meshPath, txtSource, jsonSource, nifReader);
+                var height = FindMeshHeight(meshPath, sources);
                 if (height is null) continue;
 
                 if (!WithinRange(height.Value, armor, addon, log)) break;
@@ -232,21 +242,30 @@ public sealed class HeelSoundPatcher
 
         if (targets.Count > 0) return targets;
 
-        // Nothing per-mesh. HO3 is the only source that marks the Armor record as a whole - the
-        // HHS json "formid" form resolves to an ArmorAddon world model and is handled above.
-        if (!_settings.Detection.EnableHo3Script) return targets;
+        return sources.Ho3IsFirst ? targets : FindRecordTargets(armor, addons, sources, heelSlots, log);
+    }
 
-        var recordHeight = ho3Source.TryGetHeight(armor);
+    /// <summary>The HO3 script path: a height for the Armor, with the biped slots picking addons.</summary>
+    private List<(IArmorAddonGetter Addon, HeelHeight Height)> FindRecordTargets(
+        IArmorGetter armor,
+        List<IArmorAddonGetter> addons,
+        DetectionSources sources,
+        BipedObjectFlag heelSlots,
+        PatcherLog log)
+    {
+        var targets = new List<(IArmorAddonGetter, HeelHeight)>();
+
+        if (sources.Ho3 is null) return targets;
+
+        var recordHeight = sources.Ho3.TryGetHeight(armor);
         if (recordHeight is null) return targets;
 
         if (!WithinRange(recordHeight.Value, armor, null, log)) return targets;
 
-        var slotMatched = addons
+        var chosen = addons
             .Where(addon => (addon.BodyTemplate?.FirstPersonFlags ?? 0) != 0 &&
                             ((addon.BodyTemplate!.FirstPersonFlags & heelSlots) != 0))
             .ToList();
-
-        var chosen = slotMatched;
         var via = "slot match";
 
         if (chosen.Count == 0)
@@ -278,34 +297,22 @@ public sealed class HeelSoundPatcher
         return targets;
     }
 
-    /// <summary>
-    /// Order matters and is taken from HHS itself. Its json entries are pre-seeded into the same
-    /// cache that the mesh lookups later fill, and the first write wins, so json beats everything.
-    /// After that <c>Cache::Map::Find</c> tries the nif extra data and only falls back to the txt
-    /// file when that yields zero.
-    /// </summary>
-    private HeelHeight? FindMeshHeight(
-        string meshPath,
-        HhsTxtSource txtSource,
-        HhsJsonSource? jsonSource,
-        NifHeelHeightReader nifReader)
+    /// <summary>First configured mesh source that has a height for this mesh path.</summary>
+    private static HeelHeight? FindMeshHeight(string meshPath, DetectionSources sources)
     {
-        if (jsonSource is not null)
+        foreach (var source in sources.Order)
         {
-            var fromJson = jsonSource.TryGetByMesh(meshPath);
-            if (fromJson is not null) return fromJson;
-        }
+            var height = source switch
+            {
+                HeightSource.HhsJson => sources.Json?.TryGetByMesh(meshPath),
+                HeightSource.HhsTxt => sources.Txt?.TryGetHeight(meshPath),
+                HeightSource.HhsNif => sources.Nif?.TryGetHeight(meshPath) is { } value
+                    ? new HeelHeight(value, "HHS-nif", meshPath)
+                    : null,
+                _ => null,
+            };
 
-        if (_settings.Detection.EnableHhsNif)
-        {
-            var fromNif = nifReader.TryGetHeight(meshPath);
-            if (fromNif is not null) return new HeelHeight(fromNif.Value, "HHS-nif", meshPath);
-        }
-
-        if (_settings.Detection.EnableHhsTxt)
-        {
-            var fromTxt = txtSource.TryGetHeight(meshPath);
-            if (fromTxt is not null) return fromTxt;
+            if (height is not null) return height;
         }
 
         return null;
@@ -402,10 +409,6 @@ public sealed class HeelSoundPatcher
         log.Always(new string('=', 100));
         log.Info($"Output: {_state.OutputPath}");
         log.Info($"Plugins in load order: {_state.LoadOrder.Count}");
-        log.Info(
-            $"Sources enabled: HO3={_settings.Detection.EnableHo3Script}, " +
-            $"txt={_settings.Detection.EnableHhsTxt}, json={_settings.Detection.EnableHhsJson}, " +
-            $"nif={_settings.Detection.EnableHhsNif}");
         log.Info(
             $"Models checked: female={_settings.Detection.CheckFemaleModel}, " +
             $"male={_settings.Detection.CheckMaleModel}");

@@ -72,5 +72,5 @@ nothing, only parses it fully when its header actually mentions HHS data, and ca
 The log reports `Meshes opened: N, fully parsed: M` so you can see whether that is where the time
 went.
 
-If you do not use the in-mesh method at all, turning off **Read HHS extra data inside meshes** in
-the settings skips it entirely.
+If you do not use the in-mesh method at all, removing `HhsNif` from the
+[detection order](settings.md#detection-order) skips it entirely.

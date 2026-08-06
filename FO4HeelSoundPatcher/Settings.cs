@@ -1,3 +1,4 @@
+using FO4HeelSoundPatcher.Detection;
 using Mutagen.Bethesda.Fallout4;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Synthesis.Settings;
@@ -72,33 +73,30 @@ public class SoundSettings
 public class DetectionSettings
 {
     [SynthesisOrder]
-    [SynthesisSettingName("Read HO3 / HHSOutfit3 script property")]
+    [SynthesisSettingName("Use the default detection order")]
     [SynthesisTooltip(
-        "Read the heel height from the 'HHSHeight' float property of the HHSOutfit3 script " +
-        "attached to an Armor record. This is the HO3 method (Nexus mod 82318).")]
-    public bool EnableHo3Script = true;
+        "On (default): consult the sources in the order HHS itself uses, and ignore the list below.\n" +
+        "Off: use the list below instead.\n\n" +
+        "Turning this back on is how you undo a custom order - the list is left as you had it.")]
+    public bool UseDefaultSourceOrder = true;
 
     [SynthesisOrder]
-    [SynthesisSettingName("Read HHS .txt files")]
+    [SynthesisSettingName("Detection order")]
     [SynthesisTooltip(
-        "Read the heel height from a .txt file sitting next to the mesh with the same base name, " +
-        "containing a line like 'Height=13.1'. This is the classic HHS method.")]
-    public bool EnableHhsTxt = true;
-
-    [SynthesisOrder]
-    [SynthesisSettingName("Read HHS .json files")]
-    [SynthesisTooltip(
-        "Read heel heights from json files in Data\\F4SE\\Plugins\\HHS. Both keying styles are " +
-        "supported: by mesh path ('key'/'value') and by plugin + FormID ('formid'/'gender'/'value').")]
-    public bool EnableHhsJson = true;
-
-    [SynthesisOrder]
-    [SynthesisSettingName("Read HHS extra data inside meshes")]
-    [SynthesisTooltip(
-        "Read the heel height from a NiFloatExtraData block named 'HHS' inside the .nif itself.\n\n" +
-        "This is the slowest source because meshes have to be opened. Meshes are only opened when " +
-        "their header actually mentions NiFloatExtraData, and results are cached per path.")]
-    public bool EnableHhsNif = true;
+        "Which places to look for a heel height, and in what order. The first source that has a " +
+        "height for a piece of armor wins; the rest are not consulted for it.\n\n" +
+        "Remove a source to stop reading it entirely. Leaving the list empty falls back to the " +
+        "default order rather than detecting nothing.\n\n" +
+        "Only used when 'Use the default detection order' is off.\n\n" +
+        "  HhsJson    json files in Data\\F4SE\\Plugins\\HHS\n" +
+        "  HhsNif     a NiFloatExtraData block named HHS inside the mesh\n" +
+        "  HhsTxt     a .txt next to the mesh containing Height=13.1\n" +
+        "  Ho3Script  the HHSHeight property of the HO3 HHSOutfit3 script\n\n" +
+        "The default is HhsJson, HhsNif, HhsTxt, Ho3Script. The first three come from the mesh and " +
+        "point at one specific armor piece; Ho3Script marks the whole armor, so where you put it " +
+        "decides whether it overrides mesh data or only fills the gaps.\n\n" +
+        "HhsNif is the slow one - it has to open meshes. Removing it is the way to speed up a run.")]
+    public List<HeightSource> SourcePriority = HeightSourceOrder.Default.ToList();
 
     [SynthesisOrder]
     [SynthesisSettingName("Minimum heel height")]

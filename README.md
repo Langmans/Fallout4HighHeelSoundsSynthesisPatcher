@@ -46,6 +46,8 @@ Everything is adjustable in the Synthesis settings panel. The ones people usuall
 - **Armor name blacklist** — regular expressions matched against the armor's name. For example
   `/\bboots$/i` stops anything ending in "boots" from getting heel sounds.
 - **Heel footstep set** — swap in a different sound if you use another heel sound mod.
+- **Detection order** — which places to read heel heights from, and which wins when a mod records
+  more than one. The default follows HHS itself; removing a source stops it being read at all.
 - **Dry run** — see exactly what would happen without writing anything.
 
 Full list, including the detection toggles and biped slot options:

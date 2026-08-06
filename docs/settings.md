@@ -29,14 +29,40 @@ Armor that already points at the configured heel set is skipped either way.
 
 ## Detection
 
-### Source toggles
-*Default: all on*
+### Use the default detection order
+*Default: on*
 
-One switch per place a heel height can be recorded — the HO3 script, HHS `.txt` files, HHS `.json`
-files, and HHS data inside meshes. See [How it works](how-it-works.md) for what each one is.
+While this is on, the sources are consulted in the order HHS itself uses and the list below is
+ignored. Turning it back on is how you undo a custom order — your list is left as you had it.
 
-Turning off **Read HHS extra data inside meshes** is the one worth considering: it is the only
-source that has to open mesh files, so it is the only one that costs noticeable time.
+### Detection order
+*Default: `HhsJson`, `HhsNif`, `HhsTxt`, `Ho3Script`*
+
+Which places to look for a heel height, and in what order. The first source that has a height for a
+piece of armor wins; the rest are not consulted for it. Only used when the setting above is off.
+
+| Source | Where it reads from |
+|---|---|
+| `HhsJson` | json files in `Data\F4SE\Plugins\HHS` |
+| `HhsNif` | a `NiFloatExtraData` block named `HHS` inside the mesh |
+| `HhsTxt` | a `.txt` next to the mesh containing `Height=13.1` |
+| `Ho3Script` | the `HHSHeight` property of the HO3 `HHSOutfit3` script |
+
+**Removing a source stops it being read at all.** That is also how you speed up a run: `HhsNif` is
+the only source that has to open mesh files. Leaving the list completely empty falls back to the
+default order rather than detecting nothing, on the assumption that an empty list is an accident.
+
+**Where you put `Ho3Script` matters.** The three HHS sources read data attached to a specific mesh,
+so they name one armor piece. HO3 marks the whole armor and lets the
+[heel biped slots](#heel-biped-slots) pick the pieces. Putting `Ho3Script` first means HO3 wins
+whenever it has a height; putting it last (the default) means it only fills the gaps where no mesh
+data exists.
+
+The log names the order in effect on every run, and says which sources are not being consulted.
+
+The default reflects how HHS resolves its own sources — see
+[How it works](how-it-works.md#why-that-order). Changing it changes which height wins for armor
+that records more than one, which in turn changes what the minimum height filter does.
 
 ### Minimum heel height
 *Default: `5.0`*

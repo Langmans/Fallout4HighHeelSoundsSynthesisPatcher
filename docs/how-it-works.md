@@ -40,6 +40,10 @@ not predict from the mod's files.
 
 A height of exactly `0` means "not a heel" throughout HHS, not "zero height".
 
+The order is a setting, so you can override it — see
+[Detection order](settings.md#detection-order). Only armor that records a height in more than one
+place is affected, since otherwise there is nothing to choose between.
+
 ## Which armor pieces get the sound
 
 The three HHS sources all hang off a specific mesh, so they identify one specific ArmorAddon and
