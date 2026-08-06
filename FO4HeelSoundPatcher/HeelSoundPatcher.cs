@@ -358,11 +358,24 @@ public sealed class HeelSoundPatcher
             return;
         }
 
-        if (_settings.Sound.OnlyIfFootstepUnset && !addon.FootstepSound.IsNull)
+        var existing = addon.FootstepSound;
+
+        var blocked = _settings.Sound.Overwrite switch
         {
-            log.Skipped("footstep set already present",
-                $"{Describe(armor)} -> ARMA {addon.FormKey} '{addon.EditorID}' already has " +
-                $"footstep set {addon.FootstepSound.FormKey}");
+            FootstepOverwrite.OnlyWhenUnset when !existing.IsNull => "footstep set already present",
+            FootstepOverwrite.UnlessDeliberate when FootstepSets.HasDeliberateSet(addon) =>
+                "keeps its own footstep set",
+            _ => null,
+        };
+
+        if (blocked is not null)
+        {
+            var name = existing.TryResolve(_state.LinkCache, out var record) && record.EditorID is { } editorId
+                ? $"{existing.FormKey} '{editorId}'"
+                : existing.FormKey.ToString();
+
+            log.Skipped(blocked,
+                $"{Describe(armor)} -> ARMA {addon.FormKey} '{addon.EditorID}' already points at {name}");
             return;
         }
 
@@ -391,7 +404,7 @@ public sealed class HeelSoundPatcher
         log.Info(
             $"Models checked: female={_settings.Detection.CheckFemaleModel}, " +
             $"male={_settings.Detection.CheckMaleModel}");
-        log.Info($"Only patch addons without a footstep set: {_settings.Sound.OnlyIfFootstepUnset}");
+        log.Info($"Existing footstep sets: {_settings.Sound.Overwrite}");
     }
 
     private string BuildLogPath()

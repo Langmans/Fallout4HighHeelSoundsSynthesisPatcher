@@ -16,16 +16,38 @@ owns it as a master.
 Point this somewhere else if you use a different heel sound mod — for example one of the sets in
 `HHFootsteps.esp`.
 
-### Only patch addons without a footstep set
-*Default: off — leave it off*
+### Replace an existing footstep set
+*Default: `UnlessDeliberate`*
 
-Nearly every Fallout 4 armor piece already points at the vanilla `DefaultFootstepSetXXX`. Turning
-this on therefore skips almost everything, which is not what it sounds like it does.
+What to do when an armor piece already points at a footstep set. This matters more than it sounds,
+because there are three cases and not two.
 
-It exists for the case where another patcher has deliberately assigned footstep sets you want to
-preserve.
+| Mode | Patches a piece that has... |
+|---|---|
+| `UnlessDeliberate` | no set, or the vanilla `DefaultFootstepSetXXX` placeholder |
+| `OnlyWhenUnset` | no set at all |
+| `Always` | anything |
 
-Armor that already points at the configured heel set is skipped either way.
+**Why the default is not "always".** Some mods ship their own footstep sounds and wire them up
+themselves — IceStorm's Shoes has its own `AutumnHighHeelsFootstepSet`, for instance. Replacing
+those throws away a choice the author made deliberately, and swaps a sound tuned for that outfit
+for a generic one. `UnlessDeliberate` leaves them alone.
+
+**Why the default is not "only when unset" either.** Nearly all Fallout 4 armor carries the vanilla
+`DefaultFootstepSetXXX`, which means nobody chose anything. Treating that as a decision would skip
+almost everything: on one test load order it takes 28 patched records down to 1.
+
+Note that the vanilla barefoot and power armor sets *are* treated as deliberate. Unlike the
+placeholder, they say something real about how the piece should sound.
+
+Armor already pointing at the configured heel set is skipped in every mode.
+
+When a piece is preserved the log says which set it kept, so it is never a mystery:
+
+```
+[SKIP  ] ARMO 000003:IceStormsShoes.esl 'AutumnOutfitShoesHadidHighHeels' -> ARMA 000011 ...
+         already points at 000821:IceStormsShoeSounds.esl 'AutumnHighHeelsFootstepSet'
+```
 
 ## Detection
 

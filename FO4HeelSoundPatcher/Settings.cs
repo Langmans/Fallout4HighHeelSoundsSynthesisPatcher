@@ -59,15 +59,17 @@ public class SoundSettings
         FormKey.Factory("0026D8:HighHeelSounds.esm").ToLinkGetter<IFootstepSetGetter>();
 
     [SynthesisOrder]
-    [SynthesisSettingName("Only patch addons without a footstep set")]
+    [SynthesisSettingName("Replace an existing footstep set")]
     [SynthesisTooltip(
-        "On: ArmorAddon records that already have some footstep set are left alone.\n" +
-        "Off (default): any existing footstep set is overwritten with the heel set.\n\n" +
-        "Leave this off. Nearly every Fallout 4 armor addon already points at the vanilla " +
-        "DefaultFootstepSetXXX, so turning it on skips almost everything. It is here for the case " +
-        "where another patcher has already assigned deliberate footstep sets you want to keep.\n\n" +
-        "Addons that already point at the configured heel set are skipped either way.")]
-    public bool OnlyIfFootstepUnset = false;
+        "What to do when an armor piece already points at a footstep set.\n\n" +
+        "UnlessDeliberate (default): patch a piece with no set, or one still on Fallout 4's " +
+        "placeholder DefaultFootstepSetXXX, and leave anything else alone. Some mods ship their " +
+        "own heel sounds and wire them up themselves - this keeps those.\n\n" +
+        "OnlyWhenUnset: only patch a piece with no footstep set at all. This skips nearly " +
+        "everything, because most armor carries the vanilla placeholder.\n\n" +
+        "Always: replace whatever is there.\n\n" +
+        "A piece already pointing at the configured heel set is skipped in every mode.")]
+    public FootstepOverwrite Overwrite = FootstepOverwrite.UnlessDeliberate;
 }
 
 public class DetectionSettings
