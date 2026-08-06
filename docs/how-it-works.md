@@ -178,8 +178,8 @@ Archives are mostly textures and sounds, so this roughly halves it: a vanilla in
 The log reports what was indexed and where files were then read from:
 
 ```
-[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives
-[INFO  ] Files read: 0 loose, 850 from BA2 (850 needed inflating), 2660 not found
+[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives, 4 of them Next-Gen format
+[INFO  ] Files read: 0 loose, 850 from BA2, 2660 not found
 ```
 
 A high "not found" count is normal — most armor has no heel data, and a miss is what establishes
@@ -201,10 +201,17 @@ records its entry sizes in a different layout. Mutagen 0.54 reads a compressed e
 those as though it were uncompressed, and hands back the raw zlib data instead of the file. Left
 alone, nothing out of such an archive is usable: a mesh is not a mesh, a `.txt` is binary noise.
 
-So the patcher checks whether what it got back still looks like a zlib stream, and inflates it
-itself if so. That is what `needed inflating` counts in the log line above. An entry that genuinely
-is not compressed does not carry a zlib header, so archives that already worked are untouched, and
-the count for them stays at zero.
+So the patcher checks whether what it got back still looks like a zlib stream, and decompresses it
+itself if so. An entry that genuinely is not compressed does not carry a zlib header, so archives
+that already worked are untouched.
+
+The log says how many of your archives are in that format, read from each archive's own header:
+
+```
+... from 7/7 BA2 archives, 4 of them Next-Gen format
+```
+
+A count above zero is normal and not a problem — it just means those archives took the extra step.
 
 This is worth knowing about mainly because it is invisible when it goes wrong: the patcher simply
 finds no heel data in any archived mod, with nothing obviously broken.

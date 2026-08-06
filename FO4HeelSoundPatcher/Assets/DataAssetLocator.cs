@@ -32,13 +32,17 @@ public sealed class DataAssetLocator
 
     public int FilesNotFound { get; private set; }
 
-    /// <summary>Archived entries the reader handed over still compressed.</summary>
-    public int ArchivedFilesInflated { get; private set; }
+    /// <summary>
+    /// Archives in the Next-Gen BA2 format. Their entries come back still compressed, so they are
+    /// worth naming in the log: it is the difference between "no heel data in your archived mods"
+    /// meaning there is none, and it meaning nothing could be read.
+    /// </summary>
+    public int NextGenArchives { get; private set; }
 
     public string Statistics =>
         _searchArchives
-            ? $"Files read: {LooseFilesRead} loose, {ArchivedFilesRead} from BA2 " +
-              $"({ArchivedFilesInflated} needed inflating), {FilesNotFound} not found"
+            ? $"Files read: {LooseFilesRead} loose, {ArchivedFilesRead} from BA2, " +
+              $"{FilesNotFound} not found"
             : $"Files read: {LooseFilesRead} loose, {FilesNotFound} not found (archives not searched)";
 
     public DataAssetLocator(string dataFolder, PatcherLog log, bool searchArchives = true)
@@ -213,7 +217,7 @@ public sealed class DataAssetLocator
     /// not carry a zlib header, so this is a no-op for archives that already work.
     /// </para>
     /// </summary>
-    private MemoryStream OpenArchived(IArchiveFile file, int maxBytes)
+    private static MemoryStream OpenArchived(IArchiveFile file, int maxBytes)
     {
         var bytes = file.GetBytes();
 
@@ -242,7 +246,6 @@ public sealed class DataAssetLocator
 
                 inflated.Position = 0;
 
-                ArchivedFilesInflated++;
                 return inflated;
             }
             catch (InvalidDataException)
@@ -252,6 +255,26 @@ public sealed class DataAssetLocator
         }
 
         return new MemoryStream(bytes);
+    }
+
+    /// <summary>
+    /// Reads the archive's format version from its header. Version 7 and up is the Next-Gen
+    /// layout, which is what the backported Archive2 writes too.
+    /// </summary>
+    private static bool IsNextGenFormat(FilePath archivePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(archivePath);
+            using var reader = new BinaryReader(stream);
+
+            if (new string(reader.ReadChars(4)) != "BTDX") return false;
+            return reader.ReadUInt32() >= 7;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -283,6 +306,8 @@ public sealed class DataAssetLocator
         {
             try
             {
+                if (IsNextGenFormat(archivePath)) NextGenArchives++;
+
                 var reader = Archive.CreateReader(GameRelease.Fallout4, archivePath);
                 var before = _archiveIndex.Count;
                 foreach (var file in reader.Files)
@@ -304,9 +329,12 @@ public sealed class DataAssetLocator
             }
         }
 
+        var nextGen = NextGenArchives > 0
+            ? $", {NextGenArchives} of them Next-Gen format"
+            : string.Empty;
         _log.Info(
             $"Indexed {_archiveIndex.Count} relevant files ({string.Join("/", IndexedExtensions)}) " +
-            $"from {indexed}/{_archivePaths.Count} BA2 archives");
+            $"from {indexed}/{_archivePaths.Count} BA2 archives{nextGen}");
         return _archiveIndex;
     }
 }

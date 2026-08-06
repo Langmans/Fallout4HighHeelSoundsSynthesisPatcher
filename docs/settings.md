@@ -113,13 +113,13 @@ extensions that can ever be a hit. The log reports how many files were indexed, 
 eventually read from each place:
 
 ```
-[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives
-[INFO  ] Files read: 0 loose, 850 from BA2 (850 needed inflating), 2660 not found
+[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives, 4 of them Next-Gen format
+[INFO  ] Files read: 0 loose, 850 from BA2, 2660 not found
 ```
 
-`needed inflating` counts entries that came back still compressed and had to be decompressed here —
-see [Why some entries need inflating](how-it-works.md#why-some-entries-need-inflating). It is
-expected to be high for Next-Gen archives and zero for older ones; either way it is not a problem.
+Next-Gen archives need an extra decompression step that the patcher handles itself — see
+[Why some entries need inflating](how-it-works.md#why-some-entries-need-inflating). The count is
+informational; any number is fine.
 
 ### Check female / male world model
 *Default: both on*
