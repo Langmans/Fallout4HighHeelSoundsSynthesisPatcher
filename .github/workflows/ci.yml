@@ -43,24 +43,56 @@ jobs:
           dotnet test --no-build --configuration Release --verbosity normal
           --collect:"XPlat Code Coverage" --results-directory TestResults
 
-      # Written to the run summary rather than a badge. Most of the untested code needs a game
-      # install and a real load order to exercise, so a single percentage on the readme would say
-      # less than the per-class breakdown does.
-      - name: Coverage summary
+      - name: Coverage report
         if: always()
         uses: danielpalme/ReportGenerator-GitHub-Action@5.5.11
         with:
           reports: TestResults/**/coverage.cobertura.xml
           targetdir: coverage
-          reporttypes: MarkdownSummaryGithub
+          reporttypes: Html;Badges;MarkdownSummaryGithub
 
+      # The per-class breakdown says more than the single percentage the badge shows, and it is
+      # here on every run including pull requests.
       - name: Publish coverage summary
         if: always()
         shell: bash
         run: cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage
 
       # Reported separately from the build so the reason is obvious when it is a dependency
       # problem rather than a code one.
       - name: List vulnerable packages
         if: always()
         run: dotnet list package --vulnerable --include-transitive
+
+  # The badge and the HTML report are published to an orphan gh-pages branch rather than committed
+  # to main, so the history stays free of "update coverage badge" noise.
+  #
+  # Split from the build job on purpose: this is the only job that needs write access, and it runs
+  # no project code - it just takes the artifact the build produced and publishes it.
+  publish-coverage:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage
+          path: coverage
+
+      - name: Publish to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4.8.0
+        with:
+          branch: gh-pages
+          folder: coverage
+          single-commit: true
