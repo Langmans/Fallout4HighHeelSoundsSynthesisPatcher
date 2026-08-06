@@ -50,7 +50,7 @@ public sealed class NifHeelHeightReader
 
     private float? Read(string meshDataPath)
     {
-        if (!_assets.TryOpen(meshDataPath, out var stream, out var origin))
+        if (!_assets.TryOpen(meshDataPath, out var opened, out var origin))
         {
             _log.Detail($"mesh not found: {meshDataPath}");
             return null;
@@ -60,13 +60,13 @@ public sealed class NifHeelHeightReader
 
         try
         {
-            // BA2 streams are not necessarily seekable; the header scan and Nifly both need to
-            // rewind, so pull the mesh into memory once.
-            using var buffer = new MemoryStream();
-            using (stream) stream.CopyTo(buffer);
-            buffer.Position = 0;
+            // Rejecting a mesh only needs its header, and almost every mesh is rejected - meshes
+            // here average close to a megabyte, so reading them whole just to look at the first
+            // few kilobytes is most of the cost of this source. A seekable stream can be scanned
+            // in place and rewound; only a stream that cannot rewind has to be buffered.
+            using var stream = AsSeekable(opened);
 
-            var couldContain = NifHeader.CouldContainHhsExtraData(buffer, out var diagnostic);
+            var couldContain = NifHeader.CouldContainHhsExtraData(stream, out var diagnostic);
             if (diagnostic is not null) _log.Debug($"{meshDataPath}: {diagnostic}");
             if (!couldContain)
             {
@@ -74,11 +74,11 @@ public sealed class NifHeelHeightReader
                 return null;
             }
 
-            buffer.Position = 0;
+            stream.Position = 0;
             MeshesFullyParsed++;
 
             var nif = new NifFile();
-            var result = nif.Load(buffer);
+            var result = nif.Load(stream);
             if (result != 0)
             {
                 _log.Warn($"nif parse failed (code {result}): {meshDataPath}");
@@ -112,6 +112,24 @@ public sealed class NifHeelHeightReader
         {
             _log.Warn($"nif read failed for '{meshDataPath}': {ex.GetType().Name} - {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns the stream itself when it can rewind, otherwise a buffered copy. Both the header
+    /// scan and Nifly need to start from the beginning, and an archive entry is not guaranteed to
+    /// support seeking. Disposing the result also disposes the original.
+    /// </summary>
+    private static Stream AsSeekable(Stream stream)
+    {
+        if (stream.CanSeek) return stream;
+
+        using (stream)
+        {
+            var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            buffer.Position = 0;
+            return buffer;
         }
     }
 }
