@@ -62,6 +62,19 @@ it — you would be editing the real mod.
 dotnet test
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs the same four steps on every push and pull request, on
+`windows-latest` — the tests build real paths with backslashes, which is a separator on Windows and
+an ordinary filename character elsewhere.
+
+Restore is also where NuGet Audit runs, and `Directory.Build.props` promotes its findings to
+errors, so a dependency advisory fails the build. The workflow also runs weekly on a schedule, so
+an advisory published after a merge still surfaces rather than waiting for the next commit.
+
+Dependabot is configured for NuGet and for the actions themselves. Mutagen, Synthesis and Noggog
+are grouped into one pull request because they release in lockstep and would not build separately.
+
 ## Verifying the output
 
 The generated plugin can be checked in xEdit, but for a quick automated check a binary record

@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Lets a dependency advisory published after a merge still surface, since the audit only runs
+  # on restore and nothing else would trigger it.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Windows, not Linux. The tests build real paths with backslashes, which is a directory
+    # separator here and an ordinary filename character there.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Restore is also where NuGet Audit runs. Directory.Build.props promotes its findings
+      # (NU1901-NU1904) to errors, so a package with a known advisory fails the build here.
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      # Analyzers and code style are enforced during build; this catches formatting only.
+      - name: Check formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      # Reported separately from the build so the reason is obvious when it is a dependency
+      # problem rather than a code one.
+      - name: List vulnerable packages
+        if: always()
+        run: dotnet list package --vulnerable --include-transitive
