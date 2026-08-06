@@ -50,7 +50,7 @@ Everything is adjustable in the Synthesis settings panel. The ones people usuall
   more than one. The default follows HHS itself; removing a source stops it being read at all.
 - **Dry run** — see exactly what would happen without writing anything.
 
-Full list, including the detection toggles and biped slot options:
+Full list, including the height limits and biped slot options:
 [Settings reference](docs/settings.md).
 
 ## When it doesn't do what you expected

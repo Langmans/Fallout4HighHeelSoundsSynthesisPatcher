@@ -25,6 +25,15 @@ that owns the configured footstep set, and says which one it wanted.
 **Minimum heel height is too high.** If the skip summary is dominated by `below minimum height`,
 lower it.
 
+**The detection order leaves out the source your mods use.** The log names the order in effect and
+which sources are not being consulted:
+
+```
+[INFO  ] Detection order: HhsTxt  (using a custom order; not consulted: HhsJson, HhsNif, Ho3Script)
+```
+
+Turn **Use the default detection order** back on to undo a custom order.
+
 ## A specific outfit did not get the sound
 
 Search the log for its name or Editor ID. One of these will be there:
@@ -37,9 +46,11 @@ Search the log for its name or Editor ID. One of these will be there:
 | `footstep set already present` | Only possible if you turned on *Only patch addons without a footstep set*. Turn it back off. |
 | `already set` | It already points at the heel footstep set. Nothing to do. |
 
-If it does not appear at all, the mod records no heel height anywhere the patcher can find. That is
-a gap in the mod, not in the patcher — it would not be raised by HHS either. You can add a `.txt`
-file next to the mesh yourself; see [How it works](how-it-works.md).
+If it does not appear at all, the mod records no heel height in any source you have enabled. Check
+the detection order first; if all four are being consulted, the mod records no height anywhere the
+patcher can find. That is a gap in the mod, not in the patcher — it would not be raised by HHS
+either. You can add a `.txt` file next to the mesh yourself; see
+[How it works](how-it-works.md#adding-heel-data-to-a-mod-yourself).
 
 ## Something got the sound that should not have
 

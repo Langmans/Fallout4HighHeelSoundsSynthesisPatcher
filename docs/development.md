@@ -80,7 +80,7 @@ FO4HeelSoundPatcher/
   Settings.cs              everything exposed in the Synthesis settings UI
   Num.cs                   invariant number formatting
   Assets/                  loose file + BA2 lookup
-  Detection/               one class per heel height source
+  Detection/               one class per heel height source, plus the order handling
   Filtering/               regex blacklists
   Logging/                 levelled console + file logging
   Nif/                     mesh header scan and extra data reading
