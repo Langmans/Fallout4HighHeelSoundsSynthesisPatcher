@@ -1,4 +1,5 @@
 using System.Text;
+using FO4HeelSoundPatcher.Detection;
 
 namespace FO4HeelSoundPatcher.Logging;
 
@@ -16,7 +17,10 @@ public sealed class PatcherLog : IDisposable
     private readonly StreamWriter? _file;
     private readonly Dictionary<string, int> _counters = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _skipReasons = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, int> _sourceHits = new(StringComparer.Ordinal);
+    private readonly Dictionary<HeightSource, int> _sourceHits = new();
+
+    /// <summary>The sources in effect, in the configured order, so the summary can list them all.</summary>
+    private readonly List<HeightSource> _sourceOrder = new();
     private readonly DateTime _started = DateTime.Now;
 
     public int WarningCount { get; private set; }
@@ -77,11 +81,28 @@ public sealed class PatcherLog : IDisposable
     public void Count(string key, int by = 1) =>
         _counters[key] = _counters.GetValueOrDefault(key) + by;
 
-    public void RecordSourceHit(string source) =>
+    /// <summary>
+    /// Declares which sources are in play. They are then all listed in the summary, including the
+    /// ones that found nothing - a zero is an answer, and saying nothing looks like an omission.
+    /// </summary>
+    public void RegisterSources(IEnumerable<HeightSource> sources)
+    {
+        foreach (var source in sources)
+        {
+            if (_sourceHits.ContainsKey(source)) continue;
+            _sourceHits[source] = 0;
+            _sourceOrder.Add(source);
+        }
+    }
+
+    public void RecordSourceHit(HeightSource source)
+    {
+        if (!_sourceHits.ContainsKey(source)) _sourceOrder.Add(source);
         _sourceHits[source] = _sourceHits.GetValueOrDefault(source) + 1;
+    }
 
     /// <summary>One line per ArmorAddon that got the heel footstep set.</summary>
-    public void Patched(string source, float height, string armor, string addon, string via)
+    public void Patched(HeightSource source, float height, string armor, string addon, string via)
     {
         Count("patched");
         Write(LogVerbosity.Normal, "PATCH ",
@@ -109,9 +130,10 @@ public sealed class PatcherLog : IDisposable
         Always($"  armors with a height  : {_counters.GetValueOrDefault("armors_with_height")}");
 
         // Counted once per armor per source, so these add up to the line above unless an armor
-        // drew heights for different pieces from different sources.
-        foreach (var (source, count) in _sourceHits.OrderByDescending(x => x.Value))
-            Always($"    via {source,-10} {count}");
+        // drew heights for different pieces from different sources. Listed in the detection order
+        // rather than by count, so the list reads the same way the settings do.
+        foreach (var source in _sourceOrder)
+            Always($"    via {source,-10} {_sourceHits[source]}");
 
         Always($"  armor addons patched  : {_counters.GetValueOrDefault("patched")}");
         Always($"  skipped               : {_counters.GetValueOrDefault("skipped")}");

@@ -78,15 +78,27 @@ public class NifHeaderTests
         Assert.False(NifHeader.CouldContainHhsExtraData(nif, out _));
     }
 
-    // Anything the scanner cannot make sense of has to fall through to the real parser, never be
-    // reported as "no data here".
+    // Content that is not a NIF at all cannot be parsed as one, so it is rejected rather than
+    // handed to the full parser. Archive entries that fail to decompress look exactly like this,
+    // and passing them on cost one failed parse and one warning per file.
     [Fact]
-    public void A_non_gamebryo_file_falls_through_to_the_full_parser()
+    public void Content_that_is_not_a_nif_is_rejected_with_a_reason()
     {
         using var notANif = new MemoryStream(Encoding.ASCII.GetBytes("this is not a mesh at all\n"));
 
-        Assert.True(NifHeader.CouldContainHhsExtraData(notANif, out var diagnostic));
-        Assert.NotNull(diagnostic);
+        Assert.False(NifHeader.CouldContainHhsExtraData(notANif, out var diagnostic));
+        Assert.Contains("not a NIF", diagnostic);
+    }
+
+    // The older magic still has to be recognised, or a legitimate mesh would be dropped.
+    [Fact]
+    public void A_NetImmerse_header_is_recognised_as_a_nif()
+    {
+        using var nif = new NifHeaderBuilder { Magic = "NetImmerse File Format, Version 4.0.0.2" }.Build();
+
+        // Rejected on its contents, not for being unrecognised - so no complaint about the header.
+        Assert.False(NifHeader.CouldContainHhsExtraData(nif, out var diagnostic));
+        Assert.Null(diagnostic);
     }
 
     [Fact]

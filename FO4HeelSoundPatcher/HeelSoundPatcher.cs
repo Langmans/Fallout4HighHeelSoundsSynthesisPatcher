@@ -69,6 +69,7 @@ public sealed class HeelSoundPatcher
         var order = HeightSourceOrder.Resolve(
             _settings.Detection.UseDefaultSourceOrder, _settings.Detection.SourcePriority, out var why);
         log.Info($"Detection order: {string.Join(" -> ", order)}  ({why})");
+        log.RegisterSources(order);
 
         var assets = new DataAssetLocator(
             _state.DataFolderPath, log, _settings.Detection.SearchArchives);

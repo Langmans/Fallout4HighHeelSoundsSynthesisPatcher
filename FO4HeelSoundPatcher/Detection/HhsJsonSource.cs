@@ -33,8 +33,6 @@ public sealed class HhsJsonSource : IMeshHeightSource
 {
     public HeightSource Kind => HeightSource.HhsJson;
 
-    public const string SourceName = "HHS-json";
-
     private const string HhsJsonFolder = "F4SE\\Plugins\\HHS";
 
     private readonly PatcherLog _log;
@@ -83,7 +81,7 @@ public sealed class HhsJsonSource : IMeshHeightSource
     {
         var key = DataAssetLocator.Normalize(meshDataPath);
         return _byMesh.TryGetValue(key, out var height)
-            ? new HeelHeight(height, SourceName, key)
+            ? new HeelHeight(height, Kind, key)
             : null;
     }
 

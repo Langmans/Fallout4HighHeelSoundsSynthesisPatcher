@@ -18,8 +18,6 @@ public sealed class HhsTxtSource : IMeshHeightSource
 {
     public HeightSource Kind => HeightSource.HhsTxt;
 
-    public const string SourceName = "HHS-txt";
-
     private readonly DataAssetLocator _assets;
     private readonly PatcherLog _log;
     private readonly Dictionary<string, float?> _cache = new(StringComparer.Ordinal);
@@ -45,7 +43,7 @@ public sealed class HhsTxtSource : IMeshHeightSource
                 _cache[txtPath] = height;
             }
 
-            if (height.HasValue) return new HeelHeight(height.Value, SourceName, txtPath);
+            if (height.HasValue) return new HeelHeight(height.Value, Kind, txtPath);
         }
 
         return null;

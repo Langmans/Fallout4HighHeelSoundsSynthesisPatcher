@@ -179,6 +179,26 @@ It can be skipped entirely with
 [Search inside BA2 archives](settings.md#search-inside-ba2-archives), at the cost of missing any
 mod that packs its heel data.
 
+### Next-Gen archives
+
+Fallout 4's Next-Gen BA2 format (version 8, also what the backported Archive2 produces) records its
+entry sizes differently, and Mutagen 0.54 reads a compressed entry in one as though it were
+uncompressed — handing back the raw zlib blob. Left alone, every file out of such an archive is
+unusable.
+
+The patcher spots that a returned entry is still a zlib stream and inflates it, so version 8
+archives work. An entry that genuinely is not compressed carries no zlib header, so this does
+nothing to archives that already worked. The count is reported:
+
+```
+[INFO  ] Files read: 0 loose, 850 from BA2 (850 needed inflating), 2660 not found
+```
+
+For the header scan only the first 256 KB is decompressed, which is far more than any real NIF
+header needs. A mesh that passes the scan is reopened and inflated in full. Without that cap,
+scanning vanilla's archived meshes meant inflating close to a gigabyte to read a few kilobytes of
+each.
+
 The log reports what was indexed and where the files came from:
 
 ```

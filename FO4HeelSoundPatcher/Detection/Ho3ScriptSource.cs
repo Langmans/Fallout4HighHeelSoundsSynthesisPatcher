@@ -16,8 +16,6 @@ namespace FO4HeelSoundPatcher.Detection;
 /// </summary>
 public sealed class Ho3ScriptSource
 {
-    public const string SourceName = "HO3";
-
     private const string HeightPropertyName = "HHSHeight";
 
     /// <summary>
@@ -64,13 +62,13 @@ public sealed class Ho3ScriptSource
                 switch (property)
                 {
                     case IScriptFloatPropertyGetter floatProperty:
-                        return new HeelHeight(floatProperty.Data, SourceName, $"script {script.Name}");
+                        return new HeelHeight(floatProperty.Data, HeightSource.Ho3Script, $"script {script.Name}");
 
                     case IScriptIntPropertyGetter intProperty:
                         _log.Detail(
                             $"{armor.FormKey} '{armor.EditorID}': '{HeightPropertyName}' is stored as " +
                             $"an int ({intProperty.Data}) where {Ho3ScriptName} declares Float");
-                        return new HeelHeight(intProperty.Data, SourceName, $"script {script.Name} (int)");
+                        return new HeelHeight(intProperty.Data, HeightSource.Ho3Script, $"script {script.Name} (int)");
 
                     case IScriptStringPropertyGetter stringProperty
                         when float.TryParse(
@@ -78,7 +76,7 @@ public sealed class Ho3ScriptSource
                         _log.Detail(
                             $"{armor.FormKey} '{armor.EditorID}': '{HeightPropertyName}' is stored as " +
                             $"a string (\"{stringProperty.Data}\") where {Ho3ScriptName} declares Float");
-                        return new HeelHeight(parsed, SourceName, $"script {script.Name} (string)");
+                        return new HeelHeight(parsed, HeightSource.Ho3Script, $"script {script.Name} (string)");
 
                     default:
                         _log.Warn(

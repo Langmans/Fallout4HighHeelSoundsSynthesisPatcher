@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using FO4HeelSoundPatcher.Logging;
 using Mutagen.Bethesda;
 using Mutagen.Bethesda.Archives;
@@ -17,6 +18,7 @@ namespace FO4HeelSoundPatcher.Assets;
 public sealed class DataAssetLocator
 {
     private readonly string _dataFolder;
+    private readonly bool _searchArchives;
     private readonly PatcherLog _log;
     private readonly List<FilePath> _archivePaths = new();
 
@@ -30,13 +32,20 @@ public sealed class DataAssetLocator
 
     public int FilesNotFound { get; private set; }
 
+    /// <summary>Archived entries the reader handed over still compressed.</summary>
+    public int ArchivedFilesInflated { get; private set; }
+
     public string Statistics =>
-        $"Files read: {LooseFilesRead} loose, {ArchivedFilesRead} from BA2, {FilesNotFound} not found";
+        _searchArchives
+            ? $"Files read: {LooseFilesRead} loose, {ArchivedFilesRead} from BA2 " +
+              $"({ArchivedFilesInflated} needed inflating), {FilesNotFound} not found"
+            : $"Files read: {LooseFilesRead} loose, {FilesNotFound} not found (archives not searched)";
 
     public DataAssetLocator(string dataFolder, PatcherLog log, bool searchArchives = true)
     {
         _dataFolder = dataFolder;
         _log = log;
+        _searchArchives = searchArchives;
         _log.Info($"Data folder: {dataFolder}");
 
         if (!searchArchives)
@@ -98,7 +107,15 @@ public sealed class DataAssetLocator
     /// Opens a Data-relative path. The caller owns the returned stream.
     /// <paramref name="origin"/> reports where it came from, for logging.
     /// </summary>
-    public bool TryOpen(string dataRelativePath, out Stream stream, out string origin)
+    /// <param name="dataRelativePath">Path to open, relative to the Data folder.</param>
+    /// <param name="stream">The opened stream; the caller owns it.</param>
+    /// <param name="origin">Where it came from, for logging.</param>
+    /// <param name="maxBytes">
+    /// Stop after this many bytes when the entry has to be decompressed. Zero means all of it.
+    /// Useful when only a file header is needed - inflating a whole mesh to read its first few
+    /// kilobytes is most of the cost of scanning archived meshes.
+    /// </param>
+    public bool TryOpen(string dataRelativePath, out Stream stream, out string origin, int maxBytes = 0)
     {
         var normalized = Normalize(dataRelativePath);
 
@@ -122,7 +139,7 @@ public sealed class DataAssetLocator
         {
             try
             {
-                stream = archiveFile.AsStream();
+                stream = OpenArchived(archiveFile, maxBytes);
                 origin = "ba2";
                 ArchivedFilesRead++;
                 return true;
@@ -184,6 +201,65 @@ public sealed class DataAssetLocator
 
         return results.ToList();
     }
+
+    /// <summary>
+    /// Reads an archive entry, working around archives whose entries the reader does not realise
+    /// are compressed.
+    /// <para>
+    /// Fallout 4's Next-Gen BA2 format (version 8, also produced by the backported Archive2) stores
+    /// its entry sizes differently, and Mutagen 0.54 reads a compressed entry as an uncompressed
+    /// one - handing back the raw zlib blob. Every mesh out of such an archive then fails to parse.
+    /// Inflating it here recovers the real contents. An entry that genuinely is not compressed does
+    /// not carry a zlib header, so this is a no-op for archives that already work.
+    /// </para>
+    /// </summary>
+    private MemoryStream OpenArchived(IArchiveFile file, int maxBytes)
+    {
+        var bytes = file.GetBytes();
+
+        if (LooksLikeZlib(bytes))
+        {
+            try
+            {
+                using var compressed = new MemoryStream(bytes);
+                using var inflater = new ZLibStream(compressed, CompressionMode.Decompress);
+                var inflated = new MemoryStream();
+
+                if (maxBytes > 0)
+                {
+                    var buffer = new byte[Math.Min(maxBytes, 81920)];
+                    int read;
+                    while (inflated.Length < maxBytes &&
+                           (read = inflater.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        inflated.Write(buffer, 0, read);
+                    }
+                }
+                else
+                {
+                    inflater.CopyTo(inflated);
+                }
+
+                inflated.Position = 0;
+
+                ArchivedFilesInflated++;
+                return inflated;
+            }
+            catch (InvalidDataException)
+            {
+                // Not actually zlib after all; fall through and use the bytes as they came.
+            }
+        }
+
+        return new MemoryStream(bytes);
+    }
+
+    /// <summary>
+    /// A zlib stream starts with 0x78 and a two byte header whose big-endian value is a multiple
+    /// of 31. Checking both makes a false positive on real file content very unlikely.
+    /// </summary>
+    private static bool LooksLikeZlib(byte[] data) =>
+        data.Length >= 2 && data[0] == 0x78 && ((data[0] << 8) | data[1]) % 31 == 0;
 
     /// <summary>
     /// The only extensions this patcher ever looks up. Archives hold hundreds of thousands of

@@ -40,10 +40,15 @@ public static class NifHeader
                 magic.Append((char)c);
             }
 
-            if (!magic.ToString().StartsWith("Gamebryo File Format", StringComparison.Ordinal))
+            var header = magic.ToString();
+            if (!header.StartsWith("Gamebryo File Format", StringComparison.Ordinal) &&
+                !header.StartsWith("NetImmerse File Format", StringComparison.Ordinal))
             {
-                diagnostic = "not a Gamebryo nif, parsing anyway";
-                return true;
+                // Every NIF starts with one of these two. Content that does not is not a mesh at
+                // all, so handing it to the full parser can only fail - which is exactly what used
+                // to happen, one warning per file, for archives whose entries did not decompress.
+                diagnostic = "not a NIF (no NetImmerse/Gamebryo header)";
+                return false;
             }
 
             var version = reader.ReadUInt32();
