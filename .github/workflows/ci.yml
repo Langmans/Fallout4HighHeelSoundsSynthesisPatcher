@@ -39,7 +39,25 @@ jobs:
         run: dotnet format --verify-no-changes --no-restore
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        run: >
+          dotnet test --no-build --configuration Release --verbosity normal
+          --collect:"XPlat Code Coverage" --results-directory TestResults
+
+      # Written to the run summary rather than a badge. Most of the untested code needs a game
+      # install and a real load order to exercise, so a single percentage on the readme would say
+      # less than the per-class breakdown does.
+      - name: Coverage summary
+        if: always()
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.11
+        with:
+          reports: TestResults/**/coverage.cobertura.xml
+          targetdir: coverage
+          reporttypes: MarkdownSummaryGithub
+
+      - name: Publish coverage summary
+        if: always()
+        shell: bash
+        run: cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
       # Reported separately from the build so the reason is obvious when it is a dependency
       # problem rather than a code one.

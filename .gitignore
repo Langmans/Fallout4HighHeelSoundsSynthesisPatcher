@@ -9,3 +9,7 @@ obj/
 # Personal run configuration (contains local game/profile paths).
 # Copy .vscode/launch.example.json to .vscode/launch.json and fill in your own paths.
 .vscode/launch.json
+
+# Coverage output from a local `dotnet test --collect` run.
+TestResults/
+coverage/
