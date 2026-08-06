@@ -1,4 +1,5 @@
 using FO4HeelSoundPatcher.Assets;
+using FO4HeelSoundPatcher.Detection;
 using FO4HeelSoundPatcher.Logging;
 using NiflySharp;
 using NiflySharp.Blocks;
@@ -16,8 +17,10 @@ namespace FO4HeelSoundPatcher.Nif;
 /// cached per normalised path because several ArmorAddons often share one mesh.
 /// </para>
 /// </summary>
-public sealed class NifHeelHeightReader
+public sealed class NifHeelHeightReader : IMeshHeightSource
 {
+    public HeightSource Kind => HeightSource.HhsNif;
+
     private const string HhsExtraDataName = "HHS";
 
     private readonly DataAssetLocator _assets;
@@ -27,6 +30,8 @@ public sealed class NifHeelHeightReader
     public int MeshesOpened { get; private set; }
     public int MeshesFullyParsed { get; private set; }
 
+    public string Statistics => $"Meshes opened: {MeshesOpened}, fully parsed: {MeshesFullyParsed}";
+
     public NifHeelHeightReader(DataAssetLocator assets, PatcherLog log)
     {
         _assets = assets;
@@ -34,18 +39,20 @@ public sealed class NifHeelHeightReader
     }
 
     /// <summary>Returns the HHS height for a Data-relative mesh path, or null when there is none.</summary>
-    public float? TryGetHeight(string meshDataPath)
+    public HeelHeight? TryGetHeight(string meshDataPath)
     {
         var key = DataAssetLocator.Normalize(meshDataPath);
-        if (_cache.TryGetValue(key, out var cached))
+        if (!_cache.TryGetValue(key, out var cached))
+        {
+            cached = Read(key);
+            _cache[key] = cached;
+        }
+        else
         {
             _log.Debug($"nif cache hit: {key} -> {(cached.HasValue ? Num.Height(cached.Value) : "none")}");
-            return cached;
         }
 
-        var height = Read(key);
-        _cache[key] = height;
-        return height;
+        return cached.HasValue ? new HeelHeight(cached.Value, "HHS-nif", key) : null;
     }
 
     private float? Read(string meshDataPath)

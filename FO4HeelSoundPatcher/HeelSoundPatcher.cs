@@ -2,7 +2,6 @@ using FO4HeelSoundPatcher.Assets;
 using FO4HeelSoundPatcher.Detection;
 using FO4HeelSoundPatcher.Filtering;
 using FO4HeelSoundPatcher.Logging;
-using FO4HeelSoundPatcher.Nif;
 using Mutagen.Bethesda;
 using Mutagen.Bethesda.Fallout4;
 using Mutagen.Bethesda.Plugins;
@@ -72,12 +71,7 @@ public sealed class HeelSoundPatcher
         log.Info($"Detection order: {string.Join(" -> ", order)}  ({why})");
 
         var assets = new DataAssetLocator(_state.DataFolderPath, log);
-        var sources = new DetectionSources(
-            Order: order,
-            Txt: order.Contains(HeightSource.HhsTxt) ? new HhsTxtSource(assets, log) : null,
-            Json: order.Contains(HeightSource.HhsJson) ? new HhsJsonSource(assets, _state.LinkCache, log) : null,
-            Nif: order.Contains(HeightSource.HhsNif) ? new NifHeelHeightReader(assets, log) : null,
-            Ho3: order.Contains(HeightSource.Ho3Script) ? new Ho3ScriptSource(log) : null);
+        var sources = DetectionSources.Create(order, assets, _state.LinkCache, log);
 
         var nameBlacklist = new RegexBlacklist(
             "Armor name blacklist", _settings.Filtering.ArmorNameBlacklist,
@@ -143,8 +137,7 @@ public sealed class HeelSoundPatcher
 
         log.CurrentContext = null;
         log.Info(string.Empty);
-        if (sources.Nif is { } nif)
-            log.Info($"Meshes opened: {nif.MeshesOpened}, fully parsed: {nif.MeshesFullyParsed}");
+        foreach (var statistic in sources.Statistics) log.Info(statistic);
         log.WriteSummary();
     }
 
@@ -229,7 +222,7 @@ public sealed class HeelSoundPatcher
         {
             foreach (var meshPath in MeshPaths(addon))
             {
-                var height = FindMeshHeight(meshPath, sources);
+                var height = sources.FindMeshHeight(meshPath);
                 if (height is null) continue;
 
                 if (!WithinRange(height.Value, armor, addon, log)) break;
@@ -295,27 +288,6 @@ public sealed class HeelSoundPatcher
         }
 
         return targets;
-    }
-
-    /// <summary>First configured mesh source that has a height for this mesh path.</summary>
-    private static HeelHeight? FindMeshHeight(string meshPath, DetectionSources sources)
-    {
-        foreach (var source in sources.Order)
-        {
-            var height = source switch
-            {
-                HeightSource.HhsJson => sources.Json?.TryGetByMesh(meshPath),
-                HeightSource.HhsTxt => sources.Txt?.TryGetHeight(meshPath),
-                HeightSource.HhsNif => sources.Nif?.TryGetHeight(meshPath) is { } value
-                    ? new HeelHeight(value, "HHS-nif", meshPath)
-                    : null,
-                _ => null,
-            };
-
-            if (height is not null) return height;
-        }
-
-        return null;
     }
 
     /// <summary>Data-relative mesh paths for an addon, in the order the settings ask for.</summary>

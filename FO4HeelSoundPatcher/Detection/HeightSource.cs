@@ -43,6 +43,17 @@ public static class HeightSourceOrder
     public static bool IsMeshSource(this HeightSource source) => source != HeightSource.Ho3Script;
 
     /// <summary>
+    /// Whether the HO3 script wins over the mesh sources.
+    /// <para>
+    /// Mesh sources name one armor piece each while HO3 marks the whole armor and lets the biped
+    /// slots pick the pieces, so the two cannot simply be interleaved. What the order does decide
+    /// is which of them wins when both have an answer, and that is what this answers.
+    /// </para>
+    /// </summary>
+    public static bool Ho3OutranksMeshSources(IReadOnlyList<HeightSource> order) =>
+        order.Count > 0 && order[0] == HeightSource.Ho3Script;
+
+    /// <summary>
     /// Works out the order actually in effect, and explains it.
     /// <para>
     /// Duplicates are dropped, keeping the first occurrence. An empty selection falls back to the

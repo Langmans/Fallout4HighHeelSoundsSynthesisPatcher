@@ -85,31 +85,28 @@ public class HeightSourceOrderTests
         Assert.Equal(expected, source.IsMeshSource());
     }
 
-    [Fact]
-    public void Ho3IsFirst_is_set_when_the_script_leads_the_order()
-    {
-        var sources = new DetectionSources(
-            [HeightSource.Ho3Script, HeightSource.HhsTxt], Txt: null, Json: null, Nif: null, Ho3: null);
 
-        Assert.True(sources.Ho3IsFirst);
+    [Fact]
+    public void The_HO3_script_outranks_the_mesh_sources_only_when_it_leads()
+    {
+        Assert.True(HeightSourceOrder.Ho3OutranksMeshSources(
+            [HeightSource.Ho3Script, HeightSource.HhsTxt]));
+
+        Assert.False(HeightSourceOrder.Ho3OutranksMeshSources(
+            [HeightSource.HhsTxt, HeightSource.Ho3Script]));
     }
 
     [Fact]
-    public void Ho3IsFirst_is_clear_when_a_mesh_source_leads()
+    public void The_default_order_lets_mesh_data_win_over_the_HO3_script()
     {
-        var sources = new DetectionSources(
-            [HeightSource.HhsTxt, HeightSource.Ho3Script], Txt: null, Json: null, Nif: null, Ho3: null);
-
-        Assert.False(sources.Ho3IsFirst);
+        Assert.False(HeightSourceOrder.Ho3OutranksMeshSources(HeightSourceOrder.Default));
     }
 
     [Fact]
-    public void Ho3IsFirst_is_clear_for_the_default_order()
+    public void An_order_without_the_HO3_script_does_not_let_it_outrank_anything()
     {
-        var sources = new DetectionSources(
-            HeightSourceOrder.Default, Txt: null, Json: null, Nif: null, Ho3: null);
-
-        Assert.False(sources.Ho3IsFirst);
+        Assert.False(HeightSourceOrder.Ho3OutranksMeshSources([HeightSource.HhsTxt]));
+        Assert.False(HeightSourceOrder.Ho3OutranksMeshSources([]));
     }
 
     [Fact]

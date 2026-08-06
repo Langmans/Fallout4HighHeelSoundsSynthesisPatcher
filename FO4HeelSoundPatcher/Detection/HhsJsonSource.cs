@@ -29,8 +29,10 @@ namespace FO4HeelSoundPatcher.Detection;
 /// modification's material swap model, which is out of scope here and is logged and skipped.
 /// </para>
 /// </summary>
-public sealed class HhsJsonSource
+public sealed class HhsJsonSource : IMeshHeightSource
 {
+    public HeightSource Kind => HeightSource.HhsJson;
+
     public const string SourceName = "HHS-json";
 
     private const string HhsJsonFolder = "F4SE\\Plugins\\HHS";
@@ -41,6 +43,8 @@ public sealed class HhsJsonSource
     private readonly Dictionary<string, float> _byMesh = new(StringComparer.Ordinal);
 
     public int EntryCount => _byMesh.Count;
+
+    public string Statistics => $"HHS json entries: {_byMesh.Count}";
 
     public HhsJsonSource(DataAssetLocator assets, ILinkCache linkCache, PatcherLog log)
     {
@@ -75,7 +79,7 @@ public sealed class HhsJsonSource
         _log.Info($"HHS json: {_byMesh.Count} mesh entries");
     }
 
-    public HeelHeight? TryGetByMesh(string meshDataPath)
+    public HeelHeight? TryGetHeight(string meshDataPath)
     {
         var key = DataAssetLocator.Normalize(meshDataPath);
         return _byMesh.TryGetValue(key, out var height)

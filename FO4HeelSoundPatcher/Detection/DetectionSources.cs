@@ -1,31 +1,70 @@
+using FO4HeelSoundPatcher.Assets;
+using FO4HeelSoundPatcher.Logging;
 using FO4HeelSoundPatcher.Nif;
+using Mutagen.Bethesda.Plugins.Cache;
 
 namespace FO4HeelSoundPatcher.Detection;
 
 /// <summary>
-/// The height sources in effect for a run, plus the order to consult them in. A source the user
-/// removed from the order is simply null, so it is never constructed and never reads anything.
+/// The height sources in effect for a run. A source the user left out of the order is never
+/// constructed, so it reads nothing at all.
 /// </summary>
-/// <param name="Order">The configured order, already resolved and deduplicated.</param>
-/// <param name="Txt">Reader for .txt files beside the mesh, or null when not in the order.</param>
-/// <param name="Json">Reader for Data\F4SE\Plugins\HHS json, or null when not in the order.</param>
-/// <param name="Nif">Reader for in-mesh extra data, or null when not in the order.</param>
-/// <param name="Ho3">Reader for the HO3 script property, or null when not in the order.</param>
+/// <param name="MeshSources">Mesh-based sources, already in the order to consult them.</param>
+/// <param name="Ho3">The HO3 script reader, or null when it is not in the order.</param>
+/// <param name="Ho3IsFirst">Whether the HO3 script outranks the mesh sources.</param>
 public sealed record DetectionSources(
-    IReadOnlyList<HeightSource> Order,
-    HhsTxtSource? Txt,
-    HhsJsonSource? Json,
-    NifHeelHeightReader? Nif,
-    Ho3ScriptSource? Ho3)
+    IReadOnlyList<IMeshHeightSource> MeshSources,
+    Ho3ScriptSource? Ho3,
+    bool Ho3IsFirst)
 {
     /// <summary>
-    /// Whether the HO3 script is consulted before any mesh source.
+    /// Builds the sources for a resolved order.
     /// <para>
-    /// Mesh sources target one armor piece each while HO3 targets the whole armor, so they cannot
-    /// simply be interleaved. What the order does decide is which of the two wins when both have
-    /// an answer, and that is what this flag captures.
+    /// This is the one place that knows which class implements which setting entry. Adding a source
+    /// means a new enum member, a class implementing <see cref="IMeshHeightSource"/>, and one line
+    /// here.
     /// </para>
     /// </summary>
-    public bool Ho3IsFirst { get; } =
-        Order.Count > 0 && Order[0] == HeightSource.Ho3Script;
+    public static DetectionSources Create(
+        IReadOnlyList<HeightSource> order,
+        DataAssetLocator assets,
+        ILinkCache linkCache,
+        PatcherLog log)
+    {
+        var meshSources = new List<IMeshHeightSource>();
+
+        foreach (var kind in order)
+        {
+            IMeshHeightSource? source = kind switch
+            {
+                HeightSource.HhsJson => new HhsJsonSource(assets, linkCache, log),
+                HeightSource.HhsNif => new NifHeelHeightReader(assets, log),
+                HeightSource.HhsTxt => new HhsTxtSource(assets, log),
+                _ => null,
+            };
+
+            if (source is not null) meshSources.Add(source);
+        }
+
+        return new DetectionSources(
+            MeshSources: meshSources,
+            Ho3: order.Contains(HeightSource.Ho3Script) ? new Ho3ScriptSource(log) : null,
+            Ho3IsFirst: HeightSourceOrder.Ho3OutranksMeshSources(order));
+    }
+
+    /// <summary>The first configured source that has a height for this mesh path.</summary>
+    public HeelHeight? FindMeshHeight(string meshDataPath)
+    {
+        foreach (var source in MeshSources)
+        {
+            var height = source.TryGetHeight(meshDataPath);
+            if (height is not null) return height;
+        }
+
+        return null;
+    }
+
+    /// <summary>Whatever the sources want reported at the end of a run.</summary>
+    public IEnumerable<string> Statistics =>
+        MeshSources.Select(source => source.Statistics).OfType<string>();
 }

@@ -14,8 +14,10 @@ namespace FO4HeelSoundPatcher.Detection;
 /// source). Both locations are tried here, in that order.
 /// </para>
 /// </summary>
-public sealed class HhsTxtSource
+public sealed class HhsTxtSource : IMeshHeightSource
 {
+    public HeightSource Kind => HeightSource.HhsTxt;
+
     public const string SourceName = "HHS-txt";
 
     private readonly DataAssetLocator _assets;
