@@ -53,6 +53,31 @@ public sealed class HhsTxtSource
     {
         if (!_assets.TryReadAllText(txtPath, out var text, out var origin)) return null;
 
+        var height = ParseHeight(text, out var problem);
+
+        if (problem is not null) _log.Warn($"{txtPath}: {problem}");
+        else if (height.HasValue) _log.Debug($"txt height {Num.Height(height.Value)} from {txtPath} ({origin})");
+
+        return height;
+    }
+
+    /// <summary>
+    /// Pulls the height out of an HHS text file's contents.
+    /// <para>
+    /// HHS itself matches <c>height\s*=\s*(-?(?:\d*\.\d+|\d+))</c> case insensitively anywhere in
+    /// the file. This is a little stricter - the key has to be the whole thing left of the
+    /// <c>=</c> - but agrees on everything real files contain, and rejects a stray <c>xHeight=</c>
+    /// that HHS would happily match.
+    /// </para>
+    /// <para>
+    /// <paramref name="problem"/> is set when the file exists but is not usable, which is worth
+    /// telling the user about; a file that simply has no height line is not an error.
+    /// </para>
+    /// </summary>
+    public static float? ParseHeight(string text, out string? problem)
+    {
+        problem = null;
+
         foreach (var rawLine in text.Split('\n'))
         {
             var line = rawLine.Trim();
@@ -71,15 +96,14 @@ public sealed class HhsTxtSource
             if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ||
                 float.TryParse(value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
             {
-                _log.Debug($"txt height {Num.Height(parsed)} from {txtPath} ({origin})");
                 return parsed;
             }
 
-            _log.Warn($"could not parse '{line}' in {txtPath}");
+            problem = $"could not parse '{line}'";
             return null;
         }
 
-        _log.Warn($"{txtPath} exists but contains no 'Height=' line");
+        problem = "exists but contains no 'Height=' line";
         return null;
     }
 }

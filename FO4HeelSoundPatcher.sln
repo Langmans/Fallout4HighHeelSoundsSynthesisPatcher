@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FO4HeelSoundPatcher", "FO4HeelSoundPatcher\FO4HeelSoundPatcher.csproj", "{0AF09448-85DE-4D66-A879-05AE2387AECE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FO4HeelSoundPatcher.Tests", "FO4HeelSoundPatcher.Tests\FO4HeelSoundPatcher.Tests.csproj", "{153D68F6-1CDD-440D-A742-F6CD21395027}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{0AF09448-85DE-4D66-A879-05AE2387AECE}.Release|x64.Build.0 = Release|Any CPU
 		{0AF09448-85DE-4D66-A879-05AE2387AECE}.Release|x86.ActiveCfg = Release|Any CPU
 		{0AF09448-85DE-4D66-A879-05AE2387AECE}.Release|x86.Build.0 = Release|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Debug|x64.Build.0 = Debug|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Debug|x86.Build.0 = Debug|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Release|Any CPU.Build.0 = Release|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Release|x64.ActiveCfg = Release|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Release|x64.Build.0 = Release|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Release|x86.ActiveCfg = Release|Any CPU
+		{153D68F6-1CDD-440D-A742-F6CD21395027}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
