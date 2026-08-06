@@ -48,6 +48,9 @@ piece of armor wins; the rest are not consulted for it. Only used when the setti
 | `HhsTxt` | a `.txt` next to the mesh containing `Height=13.1` |
 | `Ho3Script` | the `HHSHeight` property of the HO3 `HHSOutfit3` script |
 
+Each is described in full in
+[Where heel heights come from](how-it-works.md#where-heel-heights-come-from).
+
 **Removing a source stops it being read at all.** That is also how you speed up a run: `HhsNif` is
 the only source that has to open mesh files. Leaving the list completely empty falls back to the
 default order rather than detecting nothing, on the assumption that an empty list is an accident.
@@ -61,7 +64,7 @@ data exists.
 The log names the order in effect on every run, and says which sources are not being consulted.
 
 The default reflects how HHS resolves its own sources — see
-[How it works](how-it-works.md#why-that-order). Changing it changes which height wins for armor
+[How it works](how-it-works.md#why-this-order). Changing it changes which height wins for armor
 that records more than one, which in turn changes what the minimum height filter does.
 
 ### Minimum heel height

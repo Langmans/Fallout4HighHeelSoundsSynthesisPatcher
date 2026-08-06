@@ -17,32 +17,104 @@ your character by. This patcher reads that height and does the linking.
 
 ## Where heel heights come from
 
+Four places, consulted in this order by default. The first one with an answer for a given piece of
+armor wins, and the rest are not asked. **The order is a setting** — see
+[Detection order](settings.md#detection-order) — and removing a source from it stops that source
+being read at all.
+
 | Source | Where it lives |
 |---|---|
-| **HHS json** | `Data\F4SE\Plugins\HHS\*.json`, keyed by mesh path or by plugin + ArmorAddon FormID |
-| **HHS nif** | a `NiFloatExtraData` block named `HHS` inside the mesh, holding the height |
-| **HHS txt** | `<mesh>.txt` next to the mesh containing `Height=13.1`, then `Data\F4SE\Plugins\HHS\<basename>.txt` |
-| **HO3 script** | the `HHSHeight` float property of the `HHSOutfit3` script attached to an Armor record |
+| [`HhsJson`](#hhsjson) | `Data\F4SE\Plugins\HHS\*.json` |
+| [`HhsNif`](#hhsnif) | inside the mesh |
+| [`HhsTxt`](#hhstxt) | a `.txt` beside the mesh |
+| [`Ho3Script`](#ho3script) | a script property on the Armor record |
 
-Loose files and BA2 archives are both searched.
+Loose files and BA2 archives are both searched, for every source.
 
-### Why that order
+A height of exactly `0` means "not a heel" throughout HHS, not "zero height".
+
+### HhsJson
+
+One or more json files in `Data\F4SE\Plugins\HHS`, which exist so a mod does not need a pile of
+`.txt` files. Every top level key is a group holding an array of entries, and entries come in two
+shapes:
+
+```json
+{
+  "Myshoes1"   : [ { "key"    : "MyShoes1\\MyShoes.nif", "value" : 10 } ],
+  "MyShoes.esp": [ { "formid" : "00800", "gender" : 1,   "value" : 10 } ]
+}
+```
+
+An entry with a non-empty `key` gives the mesh path directly. Otherwise `formid` is looked up in the
+plugin named by the group — and it is an **ArmorAddon**, not an Armor, despite what the grouping
+suggests. Its world model path is then used, so both shapes end up meaning "this mesh is this high".
+
+`gender` picks which model: `0` male, `1` female, `2` both. `3` means an object modification's
+material swap model, which this patcher does not handle and logs instead.
+
+When the same mesh appears more than once, the highest value is kept.
+
+### HhsNif
+
+A `NiFloatExtraData` block named `HHS` inside the mesh itself, with the height as its float data.
+The name is matched case insensitively.
+
+Mod authors add this with NifSkope or Outfit Studio. It is the rarest of the four in practice.
+
+**The block has to be attached to a node** — see [below](#in-mesh-data-has-to-be-attached).
+
+### HhsTxt
+
+The classic HHS method: a `.txt` beside the mesh with the same base name, containing a line like
+
+```
+Height=13.1
+```
+
+Two locations are tried, in this order:
+
+1. `meshes\<path>\<name>.txt`, next to the mesh
+2. `Data\F4SE\Plugins\HHS\<name>.txt`, keyed on the file name alone
+
+HHS matches the key case insensitively, tolerates whitespace around the `=`, and allows a negative
+value. Parsing is always invariant, so a file written on a machine with a comma decimal separator
+is read the same way everywhere.
+
+This is the easiest source to add yourself — see
+[Adding heel data to a mod yourself](#adding-heel-data-to-a-mod-yourself).
+
+### Ho3Script
+
+[HO3](https://www.nexusmods.com/fallout4/mods/82318) attaches a Papyrus script to the Armor record
+rather than putting anything in the mesh. In xEdit the VMAD subrecord shows the script as
+`HHSOutfit3:HHSOutfit3` with two float properties:
+
+- `HHSHeight` — the height, which is what this patcher reads
+- `GroundClipAllowance` — how far the shoe may sink into the ground; not relevant here
+
+Both are declared `Float` in the compiled script. A whole number stored as an int or a string is
+read anyway, and noted in the log.
+
+Unlike the other three this marks the *whole armor*, which is why it needs the
+[biped slots](#which-armor-pieces-get-the-sound) to decide which piece makes the sound. HO3 also
+deliberately uses `HHSHeight = 0` for flat shoes, which is why the minimum height should stay above
+zero.
+
+### Why this order
 
 It is the order HHS itself resolves them in, taken from
 [its source](https://github.com/P-K-0/HHS): `Cache::Map::Find` reads the mesh extra data first and
 only falls back to the txt file when that comes back zero, while json entries are pre-seeded into
 that same cache at load time, where the first write wins. So json beats the mesh, which beats the
-txt file.
+txt file. HO3 comes last because mesh data is the more precise answer when both exist.
 
 Matching that order matters because the height feeds the minimum-height filter. Reporting a
 different height than the one HHS actually applies would make the filter behave in ways you could
 not predict from the mod's files.
 
-A height of exactly `0` means "not a heel" throughout HHS, not "zero height".
-
-The order is a setting, so you can override it — see
-[Detection order](settings.md#detection-order). Only armor that records a height in more than one
-place is affected, since otherwise there is nothing to choose between.
+Changing the order only affects armor that records a height in more than one place — otherwise
+there is nothing to choose between.
 
 ## Which armor pieces get the sound
 
@@ -74,16 +146,25 @@ game will never apply.
 
 ## Performance
 
-Reading meshes is the only expensive part, so it is avoided:
+`HhsNif` is the only source that has to open mesh files, and meshes run to a megabyte or more, so
+it is the only part with a real cost. Note that in the default order it comes *before* `HhsTxt`, so
+a mesh is opened even when a `.txt` sits right next to it — that is the price of matching how HHS
+resolves things.
 
-- Meshes are only opened when the cheaper sources found nothing for that piece.
-- An opened mesh is only *fully* parsed when a cheap header scan shows its block type table
-  mentions `NiFloatExtraData` and its string table mentions `HHS`. Almost no mesh does, and the
-  header is a few kilobytes against a megabyte or more for the whole model.
+What that costs is kept small:
+
+- A mesh is only *fully* parsed when a cheap header scan shows its block type table mentions
+  `NiFloatExtraData` and its string table mentions `HHS`. Almost none do. On one test load order
+  that is 2 full parses out of 65 meshes opened.
+- The header scan reads only the header. Where the file can rewind — which loose files always can —
+  nothing more than that is read for a mesh that gets rejected.
 - Results are cached per mesh path, since several armor pieces often share one mesh.
 - BA2 archives are indexed once up front rather than reopened per lookup.
 
 The log reports `Meshes opened: N, fully parsed: M` so you can see the effect.
+
+If you do not use the in-mesh method, removing `HhsNif` from the
+[detection order](settings.md#detection-order) skips all of this.
 
 ## Adding heel data to a mod yourself
 
