@@ -171,15 +171,25 @@ All three HHS sources can live inside a BA2, so archives are searched for all of
 `HhsNif` does not avoid it. To look a path up without reopening archives every time, the file
 tables are read once into an index, on the first file that is not found loose.
 
-That index only covers `.txt`, `.json` and `.nif`, the three extensions that can ever be a hit.
-Archives are mostly textures and sounds, so this roughly halves it: a vanilla install goes from
-338k entries to 174k, and the build from about two seconds to under one.
+Which archives count is not obvious. Mutagen's plain "applicable archives" call returns only the
+ones listed in the ini — for Fallout 4 that is the seven vanilla base game archives, and nothing
+else. A mod's archive loads because its name matches an enabled plugin (`SomeMod - Main.ba2` for
+`SomeMod.esp`), not because it is in the ini, and so does every DLC archive. Both are collected
+here, in load order, so a later plugin's assets outrank an earlier one's the way they do in game.
+
+The index then keeps only paths that a lookup could ever ask for. Lookups are driven by ArmorAddon
+world model paths, so that means `.nif` and side-car `.txt` under `meshes\`, and `.json` or `.txt`
+in the HHS folder. Everything else — textures, sounds, materials, interface — cannot be a hit.
+
+One more exclusion is worth naming: `meshes\AnimTextData\` holds animation text data, over 14000
+`.txt` files in vanilla alone, named by hash. They sit under `meshes\` but no armor model points at
+them, so they are skipped explicitly.
 
 The log reports what was indexed and where files were then read from:
 
 ```
-[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives, 4 of them Next-Gen format
-[INFO  ] Files read: 0 loose, 850 from BA2, 2660 not found
+[INFO  ] Indexed 224366 relevant files from 37/37 BA2 archives, 21 of them Next-Gen format
+[INFO  ] Files read: 0 loose, 1231 from BA2, 2279 not found
 ```
 
 A high "not found" count is normal — most armor has no heel data, and a miss is what establishes
@@ -208,7 +218,7 @@ that already worked are untouched.
 The log says how many of your archives are in that format, read from each archive's own header:
 
 ```
-... from 7/7 BA2 archives, 4 of them Next-Gen format
+... from 37/37 BA2 archives, 21 of them Next-Gen format
 ```
 
 A count above zero is normal and not a problem — it just means those archives took the extra step.

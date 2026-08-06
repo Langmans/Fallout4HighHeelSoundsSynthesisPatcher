@@ -108,13 +108,13 @@ default behaviour, and only its legacy `bAltRead` mode is loose-files-only — s
 heel data into a BA2 will be raised in game but get no sound from this patcher. Only turn this off
 if you know your load order ships everything loose.
 
-The index is built once, on the first file that is not found loose, and only covers the three
-extensions that can ever be a hit. The log reports how many files were indexed, and how many were
-eventually read from each place:
+The index is built once, on the first file that is not found loose, and only covers paths a lookup
+could ever ask for. The log reports how many archives were searched, how many files were indexed,
+and where files were eventually read from:
 
 ```
-[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives, 4 of them Next-Gen format
-[INFO  ] Files read: 0 loose, 850 from BA2, 2660 not found
+[INFO  ] Indexed 224366 relevant files from 37/37 BA2 archives, 21 of them Next-Gen format
+[INFO  ] Files read: 0 loose, 1231 from BA2, 2279 not found
 ```
 
 Next-Gen archives need an extra decompression step that the patcher handles itself — see

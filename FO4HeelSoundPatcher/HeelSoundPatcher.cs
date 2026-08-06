@@ -72,7 +72,9 @@ public sealed class HeelSoundPatcher
         log.RegisterSources(order);
 
         var assets = new DataAssetLocator(
-            _state.DataFolderPath, log, _settings.Detection.SearchArchives);
+            _state.DataFolderPath, log,
+            _state.LoadOrder.ListedOrder.Select(listing => listing.ModKey),
+            _settings.Detection.SearchArchives);
         var sources = DetectionSources.Create(order, assets, _state.LinkCache, log);
 
         var nameBlacklist = new RegexBlacklist(

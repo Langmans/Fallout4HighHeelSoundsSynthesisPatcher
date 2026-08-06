@@ -2,6 +2,7 @@ using System.IO.Compression;
 using FO4HeelSoundPatcher.Logging;
 using Mutagen.Bethesda;
 using Mutagen.Bethesda.Archives;
+using Mutagen.Bethesda.Plugins;
 using Noggog;
 
 namespace FO4HeelSoundPatcher.Assets;
@@ -45,7 +46,11 @@ public sealed class DataAssetLocator
               $"{FilesNotFound} not found"
             : $"Files read: {LooseFilesRead} loose, {FilesNotFound} not found (archives not searched)";
 
-    public DataAssetLocator(string dataFolder, PatcherLog log, bool searchArchives = true)
+    public DataAssetLocator(
+        string dataFolder,
+        PatcherLog log,
+        IEnumerable<ModKey> loadOrder,
+        bool searchArchives = true)
     {
         _dataFolder = dataFolder;
         _log = log;
@@ -62,13 +67,77 @@ public sealed class DataAssetLocator
 
         try
         {
-            _archivePaths.AddRange(Archive.GetApplicableArchivePaths(GameRelease.Fallout4, dataFolder));
+            _archivePaths.AddRange(CollectArchives(dataFolder, loadOrder));
             _log.Info($"Applicable BA2 archives: {_archivePaths.Count}");
         }
         catch (Exception ex)
         {
             _log.Warn($"Could not enumerate BA2 archives, falling back to loose files only: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Every archive the game would load, in ascending priority order.
+    /// <para>
+    /// Mutagen's no-argument overload only returns archives listed in the ini, which for Fallout 4
+    /// is the seven vanilla base game ones. A mod's archive is loaded because its name matches an
+    /// enabled plugin, not because it is in the ini, so asking only that overload means never
+    /// seeing a single mod archive - or even a DLC one.
+    /// </para>
+    /// <para>
+    /// The per-ModKey overload does find them, but it re-enumerates the whole Data folder on every
+    /// call, which with a few hundred plugins is a few hundred directory scans. So the matching
+    /// rule is applied the other way round here: list the archives once, and look each one's
+    /// implied plugin name up in the load order.
+    /// </para>
+    /// </summary>
+    public static List<FilePath> CollectArchives(string dataFolder, IEnumerable<ModKey> loadOrder)
+    {
+        var priorities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var priority = 0;
+        foreach (var modKey in loadOrder)
+        {
+            priorities.TryAdd(modKey.Name, priority++);
+        }
+
+        // Ini-listed archives load before any plugin's, so they rank below all of them.
+        var iniListed = Archive
+            .GetApplicableArchivePaths(GameRelease.Fallout4, dataFolder)
+            .Select(path => path.Path)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var found = new List<(int Priority, FilePath Path)>();
+
+        foreach (var path in Directory.EnumerateFiles(dataFolder, "*.ba2", SearchOption.TopDirectoryOnly))
+        {
+            var file = new FilePath(path);
+
+            if (iniListed.Contains(path))
+            {
+                found.Add((-1, file));
+                continue;
+            }
+
+            if (TryMatchPlugin(file.NameWithoutExtension, priorities, out var pluginPriority))
+            {
+                found.Add((pluginPriority, file));
+            }
+        }
+
+        return found.OrderBy(entry => entry.Priority).Select(entry => entry.Path).ToList();
+    }
+
+    /// <summary>
+    /// An archive belongs to a plugin when its name matches the plugin's, either exactly or after
+    /// trimming a trailing " - Textures" style suffix. Mirrors Mutagen's own applicability check.
+    /// </summary>
+    private static bool TryMatchPlugin(
+        string archiveName, Dictionary<string, int> priorities, out int priority)
+    {
+        if (priorities.TryGetValue(archiveName, out priority)) return true;
+
+        var delimiter = archiveName.LastIndexOf(" - ", StringComparison.Ordinal);
+        return delimiter > 0 && priorities.TryGetValue(archiveName[..delimiter], out priority);
     }
 
     /// <summary>
@@ -285,14 +354,35 @@ public sealed class DataAssetLocator
         data.Length >= 2 && data[0] == 0x78 && ((data[0] << 8) | data[1]) % 31 == 0;
 
     /// <summary>
-    /// The only extensions this patcher ever looks up. Archives hold hundreds of thousands of
-    /// textures, sounds and animations that can never be a lookup hit, and indexing those costs
-    /// both time and memory for nothing.
+    /// Whether an archived path could ever be one this patcher looks up.
+    /// <para>
+    /// Lookups are driven by ArmorAddon world model paths, so only two places can ever produce a
+    /// hit: a mesh or its side-car <c>.txt</c> under <c>meshes\</c>, and the HHS folder. Archives
+    /// are overwhelmingly textures, sounds and animation data, and indexing those costs time and
+    /// memory for something that can never be asked for.
+    /// </para>
     /// </summary>
-    private static readonly string[] IndexedExtensions = [".txt", ".json", ".nif"];
+    private static bool IsWorthIndexing(string normalizedPath)
+    {
+        if (normalizedPath.StartsWith(HhsFolderPrefix, StringComparison.Ordinal))
+        {
+            return normalizedPath.EndsWith(".json", StringComparison.Ordinal)
+                   || normalizedPath.EndsWith(".txt", StringComparison.Ordinal);
+        }
 
-    private static bool IsWorthIndexing(string normalizedPath) =>
-        IndexedExtensions.Any(ext => normalizedPath.EndsWith(ext, StringComparison.Ordinal));
+        if (!normalizedPath.StartsWith(MeshesPrefix, StringComparison.Ordinal)) return false;
+
+        // Animation text data lives under meshes\ but is named by hash and never belongs to an
+        // armor, so no world model can point at it. Vanilla alone ships over 14000 of these.
+        if (normalizedPath.StartsWith(AnimationTextPrefix, StringComparison.Ordinal)) return false;
+
+        return normalizedPath.EndsWith(".nif", StringComparison.Ordinal)
+               || normalizedPath.EndsWith(".txt", StringComparison.Ordinal);
+    }
+
+    private const string MeshesPrefix = @"meshes\";
+    private const string HhsFolderPrefix = @"f4se\plugins\hhs\";
+    private const string AnimationTextPrefix = @"meshes\animtextdata\";
 
     private Dictionary<string, IArchiveFile> ArchiveIndex()
     {
@@ -315,9 +405,9 @@ public sealed class DataAssetLocator
                     var path = Normalize(file.Path);
                     if (!IsWorthIndexing(path)) continue;
 
-                    // Later archives must not shadow earlier ones; first listing wins, matching
-                    // the order GetApplicableArchivePaths hands them to us.
-                    _archiveIndex.TryAdd(path, file);
+                    // Archives are collected in ascending priority, so a later one legitimately
+                    // replaces an earlier one - that is how the game resolves a shadowed asset.
+                    _archiveIndex[path] = file;
                 }
 
                 indexed++;
@@ -333,7 +423,7 @@ public sealed class DataAssetLocator
             ? $", {NextGenArchives} of them Next-Gen format"
             : string.Empty;
         _log.Info(
-            $"Indexed {_archiveIndex.Count} relevant files ({string.Join("/", IndexedExtensions)}) " +
+            $"Indexed {_archiveIndex.Count} relevant files " +
             $"from {indexed}/{_archivePaths.Count} BA2 archives{nextGen}");
         return _archiveIndex;
     }

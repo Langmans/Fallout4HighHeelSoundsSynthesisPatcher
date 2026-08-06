@@ -17,7 +17,8 @@ public sealed class DataAssetLocatorTests : IDisposable
     public DataAssetLocatorTests()
     {
         Directory.CreateDirectory(_dataFolder);
-        _locator = new DataAssetLocator(_dataFolder, new PatcherLog(LogVerbosity.Quiet, logFilePath: null));
+        _locator = new DataAssetLocator(
+            _dataFolder, new PatcherLog(LogVerbosity.Quiet, logFilePath: null), loadOrder: []);
     }
 
     private void WriteFile(string relativePath, string contents)
