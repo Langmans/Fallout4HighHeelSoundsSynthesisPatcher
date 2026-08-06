@@ -87,6 +87,9 @@ public sealed class HeelSoundPatcher
         var modBlacklist = _settings.Filtering.ModBlacklist.ToHashSet();
         var armorBlacklist = _settings.Filtering.ArmorBlacklist.Select(x => x.FormKey).ToHashSet();
         var heelSlots = _settings.Detection.HeelSlots.ToFlags();
+        var replaceable = _settings.Sound.ReplaceableFootstepSets
+            .Select(link => link.FormKey)
+            .ToHashSet();
 
         log.Info(
             $"Heel slots: {(heelSlots == 0 ? "<none configured>" : heelSlots.ToString())}");
@@ -139,7 +142,7 @@ public sealed class HeelSoundPatcher
                     continue;
                 }
 
-                ApplyFootstepSet(armor, addon, height, footstepSet, log);
+                ApplyFootstepSet(armor, addon, height, footstepSet, replaceable, log);
             }
         }
 
@@ -350,6 +353,7 @@ public sealed class HeelSoundPatcher
         IArmorAddonGetter addon,
         HeelHeight height,
         IFormLinkGetter<IFootstepSetGetter> footstepSet,
+        IReadOnlySet<FormKey> replaceable,
         PatcherLog log)
     {
         if (addon.FootstepSound.FormKey == footstepSet.FormKey)
@@ -360,21 +364,13 @@ public sealed class HeelSoundPatcher
 
         var existing = addon.FootstepSound;
 
-        var blocked = _settings.Sound.Overwrite switch
-        {
-            FootstepOverwrite.OnlyWhenUnset when !existing.IsNull => "footstep set already present",
-            FootstepOverwrite.UnlessDeliberate when FootstepSets.HasDeliberateSet(addon) =>
-                "keeps its own footstep set",
-            _ => null,
-        };
-
-        if (blocked is not null)
+        if (!FootstepSets.MayReplace(existing, replaceable, _settings.Sound.ReplaceAnyFootstepSet))
         {
             var name = existing.TryResolve(_state.LinkCache, out var record) && record.EditorID is { } editorId
                 ? $"{existing.FormKey} '{editorId}'"
                 : existing.FormKey.ToString();
 
-            log.Skipped(blocked,
+            log.Skipped("keeps its own footstep set",
                 $"{Describe(armor)} -> ARMA {addon.FormKey} '{addon.EditorID}' already points at {name}");
             return;
         }
@@ -404,7 +400,10 @@ public sealed class HeelSoundPatcher
         log.Info(
             $"Models checked: female={_settings.Detection.CheckFemaleModel}, " +
             $"male={_settings.Detection.CheckMaleModel}");
-        log.Info($"Existing footstep sets: {_settings.Sound.Overwrite}");
+        log.Info(
+            _settings.Sound.ReplaceAnyFootstepSet
+                ? "Existing footstep sets: replacing any"
+                : $"Existing footstep sets: replacing {_settings.Sound.ReplaceableFootstepSets.Count} listed");
     }
 
     private string BuildLogPath()

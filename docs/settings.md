@@ -16,38 +16,48 @@ owns it as a master.
 Point this somewhere else if you use a different heel sound mod — for example one of the sets in
 `HHFootsteps.esp`.
 
-### Replace an existing footstep set
-*Default: `UnlessDeliberate`*
+### Footstep sets that may be replaced
+*Default: the empty entry, and `03E091:Fallout4.esm` (`DefaultFootstepSetXXX`)*
 
-What to do when an armor piece already points at a footstep set. This matters more than it sounds,
-because there are three cases and not two.
+An armor piece whose current footstep set is on this list gets the heel set anyway. Anything else
+is left alone.
 
-| Mode | Patches a piece that has... |
-|---|---|
-| `UnlessDeliberate` | no set, or the vanilla `DefaultFootstepSetXXX` placeholder |
-| `OnlyWhenUnset` | no set at all |
-| `Always` | anything |
+The two defaults are the cases where nobody chose anything:
 
-**Why the default is not "always".** Some mods ship their own footstep sounds and wire them up
-themselves — IceStorm's Shoes has its own `AutumnHighHeelsFootstepSet`, for instance. Replacing
-those throws away a choice the author made deliberately, and swaps a sound tuned for that outfit
-for a generic one. `UnlessDeliberate` leaves them alone.
+- **the empty entry** — the piece has no footstep set at all
+- **`DefaultFootstepSetXXX`** — Fallout 4's placeholder, which nearly all armor carries simply
+  because it was never changed
 
-**Why the default is not "only when unset" either.** Nearly all Fallout 4 armor carries the vanilla
-`DefaultFootstepSetXXX`, which means nobody chose anything. Treating that as a decision would skip
-almost everything: on one test load order it takes 28 patched records down to 1.
+**Why this is not just "replace everything".** Some mods ship their own footstep sounds and wire
+them up themselves. IceStorm's Shoes, for instance, comes with `IceStormsShoeSounds.esl` and points
+61 of its armor pieces at its own `AutumnHighHeelsFootstepSet`. Replacing those throws away a
+deliberate choice and swaps a sound tuned for that outfit for a generic one.
 
-Note that the vanilla barefoot and power armor sets *are* treated as deliberate. Unlike the
-placeholder, they say something real about how the piece should sound.
+**Add a set to overrule it.** If you would rather have one heel sound throughout, add
+`AutumnHighHeelsFootstepSet` to the list and those 61 pieces get patched after all. That is the
+point of it being a list rather than a rule baked into the patcher.
 
-Armor already pointing at the configured heel set is skipped in every mode.
+**Remove an entry to protect it.** Dropping the placeholder leaves only pieces with no set at all,
+which is almost none of them — on one test load order that is 28 patched records down to 1.
+Clearing the list entirely patches nothing.
 
-When a piece is preserved the log says which set it kept, so it is never a mystery:
+Note that vanilla's barefoot and power armor sets are *not* on the list, and deliberately so.
+Unlike the placeholder they say something real about how a piece should sound.
+
+Armor already pointing at the configured heel set is skipped regardless.
+
+When a piece is preserved the log names the set it kept, so it is never a mystery:
 
 ```
 [SKIP  ] ARMO 000003:IceStormsShoes.esl 'AutumnOutfitShoesHadidHighHeels' -> ARMA 000011 ...
          already points at 000821:IceStormsShoeSounds.esl 'AutumnHighHeelsFootstepSet'
 ```
+
+### Replace any footstep set
+*Default: off*
+
+Ignore the list above and take over every armor piece, whatever it points at. Off by default,
+because it silently discards what individual mods chose.
 
 ## Detection
 

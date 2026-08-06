@@ -59,17 +59,32 @@ public class SoundSettings
         FormKey.Factory("0026D8:HighHeelSounds.esm").ToLinkGetter<IFootstepSetGetter>();
 
     [SynthesisOrder]
-    [SynthesisSettingName("Replace an existing footstep set")]
+    [SynthesisSettingName("Footstep sets that may be replaced")]
     [SynthesisTooltip(
-        "What to do when an armor piece already points at a footstep set.\n\n" +
-        "UnlessDeliberate (default): patch a piece with no set, or one still on Fallout 4's " +
-        "placeholder DefaultFootstepSetXXX, and leave anything else alone. Some mods ship their " +
-        "own heel sounds and wire them up themselves - this keeps those.\n\n" +
-        "OnlyWhenUnset: only patch a piece with no footstep set at all. This skips nearly " +
-        "everything, because most armor carries the vanilla placeholder.\n\n" +
-        "Always: replace whatever is there.\n\n" +
-        "A piece already pointing at the configured heel set is skipped in every mode.")]
-    public FootstepOverwrite Overwrite = FootstepOverwrite.UnlessDeliberate;
+        "An armor piece whose current footstep set is listed here gets the heel set anyway. " +
+        "Anything else is left alone, on the grounds that its author chose it deliberately.\n\n" +
+        "Two entries by default:\n" +
+        "  - the empty entry, meaning a piece with no footstep set at all\n" +
+        "  - DefaultFootstepSetXXX, Fallout 4's placeholder, which nearly all armor carries " +
+        "simply because nobody changed it\n\n" +
+        "Add a set here to overrule it. For example, IceStorm's Shoes assigns its own " +
+        "AutumnHighHeelsFootstepSet; listing that replaces it with your heel sound everywhere.\n\n" +
+        "Remove an entry to protect it. Clearing the list entirely means nothing is ever taken " +
+        "over, so nothing gets patched.\n\n" +
+        "A piece already pointing at the configured heel set is skipped regardless.")]
+    public List<IFormLinkGetter<IFootstepSetGetter>> ReplaceableFootstepSets =
+    [
+        FormLink<IFootstepSetGetter>.Null,
+        FootstepSets.VanillaDefault.ToLinkGetter<IFootstepSetGetter>(),
+    ];
+
+    [SynthesisOrder]
+    [SynthesisSettingName("Replace any footstep set")]
+    [SynthesisTooltip(
+        "Ignore the list above and take over every armor piece, whatever it points at.\n\n" +
+        "Use this if you want one heel sound throughout and do not care what individual mods " +
+        "chose. Off by default, because it silently discards those choices.")]
+    public bool ReplaceAnyFootstepSet;
 }
 
 public class DetectionSettings

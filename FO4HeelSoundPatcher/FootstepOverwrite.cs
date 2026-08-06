@@ -3,39 +3,28 @@ using Mutagen.Bethesda.Plugins;
 
 namespace FO4HeelSoundPatcher;
 
-/// <summary>How far to go when an armor piece already points at a footstep set.</summary>
-public enum FootstepOverwrite
-{
-    /// <summary>
-    /// Replace nothing that looks deliberate: patch a piece with no footstep set, or one still on
-    /// the vanilla placeholder, and leave anything else as its author set it.
-    /// </summary>
-    UnlessDeliberate,
-
-    /// <summary>Only patch a piece with no footstep set at all.</summary>
-    OnlyWhenUnset,
-
-    /// <summary>Replace whatever is there.</summary>
-    Always,
-}
-
 public static class FootstepSets
 {
     /// <summary>
-    /// Fallout 4's placeholder footstep set, which the overwhelming majority of armor carries
-    /// simply because nobody changed it. Treating it as "nothing set" is what makes
-    /// <see cref="FootstepOverwrite.UnlessDeliberate"/> useful rather than a no-op.
+    /// Fallout 4's placeholder footstep set. The overwhelming majority of armor carries it simply
+    /// because nobody changed it, so it is the one set that is safe to replace by default.
     /// </summary>
-    public static readonly FormKey VanillaDefault =
-        FormKey.Factory("03E091:Fallout4.esm");
+    public static readonly FormKey VanillaDefault = FormKey.Factory("03E091:Fallout4.esm");
 
     /// <summary>
-    /// True when the piece carries a footstep set its author chose.
+    /// Whether the patcher may take over a piece's footstep set.
     /// <para>
-    /// Note that the vanilla barefoot and power armor sets do <i>not</i> count as placeholders:
-    /// unlike DefaultFootstepSetXXX they are a real decision about how that piece should sound.
+    /// Everything the patcher is willing to replace comes from the user's list, including "no
+    /// footstep set at all", which is <see cref="FormKey.Null"/> in it. Special-casing that in code
+    /// would bury the same kind of decision the list exists to expose. Anything not listed is a
+    /// choice its author made, and mods shipping their own heel sounds rely on it being kept.
     /// </para>
     /// </summary>
-    public static bool HasDeliberateSet(IArmorAddonGetter addon) =>
-        !addon.FootstepSound.IsNull && addon.FootstepSound.FormKey != VanillaDefault;
+    public static bool MayReplace(
+        IFormLinkNullableGetter<IFootstepSetGetter> existing,
+        IReadOnlySet<FormKey> replaceable,
+        bool replaceAnything)
+    {
+        return replaceAnything || replaceable.Contains(existing.FormKey);
+    }
 }

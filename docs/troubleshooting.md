@@ -47,8 +47,7 @@ Search the log for its name or Editor ID. One of these will be there:
 | `below minimum height` | It has a heel height, but under your threshold. |
 | `name blacklisted` / `editor id blacklisted` | One of your regexes matched. The log names which. |
 | `no matching slot` | The armor is marked as a heel but none of its pieces use a heel biped slot. See [Settings](settings.md#heel-biped-slots). |
-| `keeps its own footstep set` | The mod assigns its own footstep sound and the patcher left it alone. See [Replace an existing footstep set](settings.md#replace-an-existing-footstep-set). |
-| `footstep set already present` | Only in `OnlyWhenUnset` mode, which skips nearly everything. Switch back to `UnlessDeliberate`. |
+| `keeps its own footstep set` | The mod assigns its own footstep sound and the patcher left it alone. Add that set to [Footstep sets that may be replaced](settings.md#footstep-sets-that-may-be-replaced) to overrule it. |
 | `already set` | It already points at the heel footstep set. Nothing to do. |
 
 If it does not appear at all, the mod records no heel height in any source you have enabled. Check
