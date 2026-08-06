@@ -159,12 +159,35 @@ What that costs is kept small:
 - The header scan reads only the header. Where the file can rewind — which loose files always can —
   nothing more than that is read for a mesh that gets rejected.
 - Results are cached per mesh path, since several armor pieces often share one mesh.
-- BA2 archives are indexed once up front rather than reopened per lookup.
 
 The log reports `Meshes opened: N, fully parsed: M` so you can see the effect.
 
 If you do not use the in-mesh method, removing `HhsNif` from the
 [detection order](settings.md#detection-order) skips all of this.
+
+### Archives
+
+All three HHS sources can live inside a BA2, so archives are searched for all of them — removing
+`HhsNif` does not avoid it. To look a path up without reopening archives every time, the file
+tables are read once into an index, on the first file that is not found loose.
+
+That index only covers `.txt`, `.json` and `.nif`, the three extensions that can ever be a hit.
+Archives are mostly textures and sounds, so this roughly halves it: a vanilla install goes from
+338k entries to 174k, and the build from about two seconds to under one.
+
+It can be skipped entirely with
+[Search inside BA2 archives](settings.md#search-inside-ba2-archives), at the cost of missing any
+mod that packs its heel data.
+
+The log reports what was indexed and where the files came from:
+
+```
+[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives
+[INFO  ] Files read: 88 loose, 0 from BA2, 3969 not found
+```
+
+A high "not found" count is normal — most armor has no heel data, and a miss is what establishes
+that.
 
 ## Adding heel data to a mod yourself
 

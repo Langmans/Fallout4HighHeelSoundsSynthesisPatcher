@@ -70,7 +70,8 @@ public sealed class HeelSoundPatcher
             _settings.Detection.UseDefaultSourceOrder, _settings.Detection.SourcePriority, out var why);
         log.Info($"Detection order: {string.Join(" -> ", order)}  ({why})");
 
-        var assets = new DataAssetLocator(_state.DataFolderPath, log);
+        var assets = new DataAssetLocator(
+            _state.DataFolderPath, log, _settings.Detection.SearchArchives);
         var sources = DetectionSources.Create(order, assets, _state.LinkCache, log);
 
         var nameBlacklist = new RegexBlacklist(
@@ -122,6 +123,10 @@ public sealed class HeelSoundPatcher
             if (targets.Count == 0) continue;
 
             log.Count("armors_with_height");
+            foreach (var source in targets.Select(target => target.Height.Source).Distinct())
+            {
+                log.RecordSourceHit(source);
+            }
 
             foreach (var (addon, height) in targets)
             {
@@ -138,6 +143,7 @@ public sealed class HeelSoundPatcher
         log.CurrentContext = null;
         log.Info(string.Empty);
         foreach (var statistic in sources.Statistics) log.Info(statistic);
+        log.Info(assets.Statistics);
         log.WriteSummary();
     }
 
@@ -227,7 +233,6 @@ public sealed class HeelSoundPatcher
 
                 if (!WithinRange(height.Value, armor, addon, log)) break;
 
-                log.RecordSourceHit(height.Value.Source);
                 targets.Add((addon, height.Value));
                 break;
             }
@@ -281,7 +286,6 @@ public sealed class HeelSoundPatcher
             }
         }
 
-        log.RecordSourceHit(recordHeight.Value.Source);
         foreach (var addon in chosen)
         {
             targets.Add((addon, recordHeight.Value with { Origin = $"{recordHeight.Value.Origin}, {via}" }));

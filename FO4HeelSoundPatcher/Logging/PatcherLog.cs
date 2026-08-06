@@ -107,15 +107,14 @@ public sealed class PatcherLog : IDisposable
         Always("Summary");
         Always($"  armors examined       : {_counters.GetValueOrDefault("armors")}");
         Always($"  armors with a height  : {_counters.GetValueOrDefault("armors_with_height")}");
+
+        // Counted once per armor per source, so these add up to the line above unless an armor
+        // drew heights for different pieces from different sources.
+        foreach (var (source, count) in _sourceHits.OrderByDescending(x => x.Value))
+            Always($"    via {source,-10} {count}");
+
         Always($"  armor addons patched  : {_counters.GetValueOrDefault("patched")}");
         Always($"  skipped               : {_counters.GetValueOrDefault("skipped")}");
-
-        if (_sourceHits.Count > 0)
-        {
-            Always("  heights found per source:");
-            foreach (var (source, count) in _sourceHits.OrderByDescending(x => x.Value))
-                Always($"    {source,-12} {count}");
-        }
 
         if (_skipReasons.Count > 0)
         {

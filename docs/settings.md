@@ -95,6 +95,28 @@ in practice occupy the Body slot or one of the leg slots.
 If an armor has a heel height but none of its pieces use one of the slots above, patch every piece
 that has a model instead of skipping the armor. Turn it off to be strict.
 
+### Search inside BA2 archives
+*Default: on*
+
+Whether to look for `.txt`, `.json` and mesh files inside BA2 archives as well as loose on disk.
+
+Turning it off makes a run faster, because the archives' file tables have to be read to build a
+lookup index. On a vanilla install that is about a second; with a big modlist it is more.
+
+**It can also make the patcher miss things.** HHS reads all three from archives too — that is its
+default behaviour, and only its legacy `bAltRead` mode is loose-files-only — so a mod that packs its
+heel data into a BA2 will be raised in game but get no sound from this patcher. Only turn this off
+if you know your load order ships everything loose.
+
+The index is built once, on the first file that is not found loose, and only covers the three
+extensions that can ever be a hit. The log reports how many files were indexed, and how many were
+eventually read from each place:
+
+```
+[INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives
+[INFO  ] Files read: 88 loose, 0 from BA2, 3969 not found
+```
+
 ### Check female / male world model
 *Default: both on*
 

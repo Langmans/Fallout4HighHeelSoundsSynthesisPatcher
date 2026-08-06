@@ -23,15 +23,33 @@ public sealed class DataAssetLocator
     /// <summary>Normalised archived path -> the file entry. Built lazily on first archive lookup.</summary>
     private Dictionary<string, IArchiveFile>? _archiveIndex;
 
-    public DataAssetLocator(string dataFolder, PatcherLog log)
+    /// <summary>Where the files actually came from, for the run summary.</summary>
+    public int LooseFilesRead { get; private set; }
+
+    public int ArchivedFilesRead { get; private set; }
+
+    public int FilesNotFound { get; private set; }
+
+    public string Statistics =>
+        $"Files read: {LooseFilesRead} loose, {ArchivedFilesRead} from BA2, {FilesNotFound} not found";
+
+    public DataAssetLocator(string dataFolder, PatcherLog log, bool searchArchives = true)
     {
         _dataFolder = dataFolder;
         _log = log;
+        _log.Info($"Data folder: {dataFolder}");
+
+        if (!searchArchives)
+        {
+            // An empty index short-circuits every archive lookup, so nothing is ever opened.
+            _archiveIndex = new Dictionary<string, IArchiveFile>(StringComparer.Ordinal);
+            _log.Info("BA2 archives: not searched (loose files only)");
+            return;
+        }
 
         try
         {
             _archivePaths.AddRange(Archive.GetApplicableArchivePaths(GameRelease.Fallout4, dataFolder));
-            _log.Info($"Data folder: {dataFolder}");
             _log.Info($"Applicable BA2 archives: {_archivePaths.Count}");
         }
         catch (Exception ex)
@@ -91,6 +109,7 @@ public sealed class DataAssetLocator
             {
                 stream = File.OpenRead(loosePath);
                 origin = "loose";
+                LooseFilesRead++;
                 return true;
             }
             catch (Exception ex)
@@ -105,6 +124,7 @@ public sealed class DataAssetLocator
             {
                 stream = archiveFile.AsStream();
                 origin = "ba2";
+                ArchivedFilesRead++;
                 return true;
             }
             catch (Exception ex)
@@ -113,6 +133,7 @@ public sealed class DataAssetLocator
             }
         }
 
+        FilesNotFound++;
         stream = Stream.Null;
         origin = string.Empty;
         return false;
@@ -164,6 +185,16 @@ public sealed class DataAssetLocator
         return results.ToList();
     }
 
+    /// <summary>
+    /// The only extensions this patcher ever looks up. Archives hold hundreds of thousands of
+    /// textures, sounds and animations that can never be a lookup hit, and indexing those costs
+    /// both time and memory for nothing.
+    /// </summary>
+    private static readonly string[] IndexedExtensions = [".txt", ".json", ".nif"];
+
+    private static bool IsWorthIndexing(string normalizedPath) =>
+        IndexedExtensions.Any(ext => normalizedPath.EndsWith(ext, StringComparison.Ordinal));
+
     private Dictionary<string, IArchiveFile> ArchiveIndex()
     {
         if (_archiveIndex is not null) return _archiveIndex;
@@ -180,9 +211,12 @@ public sealed class DataAssetLocator
                 var before = _archiveIndex.Count;
                 foreach (var file in reader.Files)
                 {
+                    var path = Normalize(file.Path);
+                    if (!IsWorthIndexing(path)) continue;
+
                     // Later archives must not shadow earlier ones; first listing wins, matching
                     // the order GetApplicableArchivePaths hands them to us.
-                    _archiveIndex.TryAdd(Normalize(file.Path), file);
+                    _archiveIndex.TryAdd(path, file);
                 }
 
                 indexed++;
@@ -194,7 +228,9 @@ public sealed class DataAssetLocator
             }
         }
 
-        _log.Info($"Indexed {_archiveIndex.Count} files from {indexed}/{_archivePaths.Count} BA2 archives");
+        _log.Info(
+            $"Indexed {_archiveIndex.Count} relevant files ({string.Join("/", IndexedExtensions)}) " +
+            $"from {indexed}/{_archivePaths.Count} BA2 archives");
         return _archiveIndex;
     }
 }

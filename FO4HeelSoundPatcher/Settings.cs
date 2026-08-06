@@ -135,6 +135,17 @@ public class DetectionSettings
     public bool FallbackToAllAddons = true;
 
     [SynthesisOrder]
+    [SynthesisSettingName("Search inside BA2 archives")]
+    [SynthesisTooltip(
+        "On (default): look for txt, json and mesh files inside BA2 archives as well as loose on " +
+        "disk. Off: loose files only.\n\n" +
+        "Only turn this off if you know every mod in your load order ships its heel data loose. " +
+        "HHS reads all three from archives too, so a mod that packs them will be raised in game " +
+        "but get no sound from this patcher.\n\n" +
+        "The archive contents are indexed once, on the first file that is not found loose.")]
+    public bool SearchArchives = true;
+
+    [SynthesisOrder]
     [SynthesisSettingName("Check female world model")]
     [SynthesisTooltip("Look for .txt / .nif / json-by-mesh data using the female world model path.")]
     public bool CheckFemaleModel = true;

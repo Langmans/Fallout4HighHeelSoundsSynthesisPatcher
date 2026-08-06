@@ -34,6 +34,10 @@ which sources are not being consulted:
 
 Turn **Use the default detection order** back on to undo a custom order.
 
+**Archive searching is off but your mods pack their heel data.** If the log says
+`BA2 archives: not searched (loose files only)`, turn
+[Search inside BA2 archives](settings.md#search-inside-ba2-archives) back on.
+
 ## A specific outfit did not get the sound
 
 Search the log for its name or Editor ID. One of these will be there:
