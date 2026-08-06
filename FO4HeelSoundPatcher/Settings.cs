@@ -181,12 +181,23 @@ public class FilterSettings
         "Regular expressions matched against the armor's display name (FULL). A match means no sound.\n\n" +
         "Plain .NET regex works (\\bboots$) and so does /pattern/flags notation (/\\bboots$/i).\n" +
         "Supported flags: i (ignore case), m (multiline), s (dot matches newline), x (ignore whitespace).\n\n" +
+        "An entry can be limited to one plugin by prefixing it:\n" +
+        "  SomeMod.esp:/\\bboots$/i\n" +
+        "Records from any other plugin then ignore that entry, which lets a loosely worded pattern " +
+        "stay safe. The prefix only counts when it parses as a plugin filename, so a regex " +
+        "containing a colon still works.\n\n" +
         "Invalid patterns are reported as a warning in the log and then ignored.")]
     public List<string> ArmorNameBlacklist = new();
 
     [SynthesisOrder]
     [SynthesisSettingName("Editor ID blacklist (regex)")]
-    [SynthesisTooltip("Same as the name blacklist, but matched against the armor's Editor ID.")]
+    [SynthesisTooltip(
+        "Same as the name blacklist, but matched against the armor's Editor ID, and it takes the " +
+        "same optional plugin prefix.\n\n" +
+        "Useful when a mod ships a deliberate no-sound variant of each item. IceStorm's Shoes, for " +
+        "instance, gives every shoe an _NCS copy that the armor workbench switches to when you " +
+        "pick vanilla footsteps; patching those would break that choice:\n" +
+        "  IceStormsShoes.esl:/_NCS$/i")]
     public List<string> EditorIdBlacklist = new();
 
     [SynthesisOrder]
@@ -205,6 +216,27 @@ public class FilterSettings
     [SynthesisSettingName("Armor blacklist")]
     [SynthesisTooltip("Individual Armor records that are never patched.")]
     public List<IFormLinkGetter<IArmorGetter>> ArmorBlacklist = new();
+
+    [SynthesisOrder]
+    [SynthesisSettingName("Armor addon Editor ID blacklist (regex)")]
+    [SynthesisTooltip(
+        "Regular expressions matched against the ArmorAddon's Editor ID. A match means that one " +
+        "piece is skipped, while the rest of the armor is still patched.\n\n" +
+        "The two blacklists above look at the Armor record. This one is needed when the difference " +
+        "lives on the piece rather than the outfit - which is where the footstep set lives too.\n\n" +
+        "IceStorm's Shoes is the case in point: every shoe has a second addon suffixed _NCS, \"no " +
+        "custom sound\", which the armor workbench switches to when you pick vanilla footsteps. " +
+        "The Armor record is named the same either way, so only the addon's Editor ID can tell " +
+        "them apart:\n" +
+        "  IceStormsShoes.esl:/_NCS$/i\n\n" +
+        "Same syntax as the other two, including the plugin prefix. ArmorAddon records have no " +
+        "display name, so there is no equivalent name filter.")]
+    public List<string> AddonEditorIdBlacklist = new();
+
+    [SynthesisOrder]
+    [SynthesisSettingName("Armor addon blacklist")]
+    [SynthesisTooltip("Individual ArmorAddon records that never get the heel set.")]
+    public List<IFormLinkGetter<IArmorAddonGetter>> ArmorAddonBlacklist = new();
 }
 
 public class LogSettings

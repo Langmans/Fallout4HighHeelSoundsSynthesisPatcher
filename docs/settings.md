@@ -176,14 +176,32 @@ Both plain .NET patterns and `/pattern/flags` notation work:
 Supported flags: `i` ignore case, `m` multiline, `s` dot matches newline, `x` ignore whitespace.
 Matching is case insensitive by default — see below.
 
+An entry can be limited to a single plugin by prefixing it:
+
+```
+SomeMod.esp:/boots$/i
+```
+
+Records from any other plugin then ignore that entry, which lets a pattern be worded loosely
+without reaching mods it was never meant for. The prefix only counts when it parses as a plugin
+filename, so a regex containing a colon — `(?:heels|pumps)$` — still works unchanged.
+
 A pattern that does not compile is reported as a warning in the log and then ignored, so one typo
-does not take the run down.
+does not take the run down. The log quotes the entry back exactly as you wrote it, prefix included.
+
+A pattern that will never do anything is reported too: a scope naming a plugin that is not in the
+load order warns at the start, and any pattern that matched nothing is listed at the end of the
+run. See [checking a filter actually does something](troubleshooting.md#checking-a-filter-actually-does-something).
 
 ### Editor ID blacklist
 *Default: empty*
 
-The same, matched against the armor's Editor ID instead of its display name. Useful when a mod's
-in-game names are inconsistent but its Editor IDs follow a pattern.
+The same, matched against the armor's Editor ID instead of its display name, and it takes the same
+optional plugin prefix. Useful when a mod's in-game names are inconsistent but its Editor IDs
+follow a pattern.
+
+Both of these look at the **Armor** record. To filter an individual piece, see
+[Armor addon Editor ID blacklist](#armor-addon-editor-id-blacklist) below.
 
 ### Match regexes case sensitively
 *Default: off*
@@ -200,6 +218,41 @@ Armor from these plugins is never patched.
 *Default: empty*
 
 Individual armor records that are never patched.
+
+### Armor addon Editor ID blacklist
+*Default: empty*
+
+Regular expressions matched against the **ArmorAddon's** Editor ID. A match skips that one piece,
+while the rest of the armor is still patched. Same syntax as the blacklists above, plugin prefix
+included.
+
+This one exists because the footstep set lives on the piece, not on the outfit — so a mod can ship
+two pieces that differ only in their sound, under a single armor record that the other blacklists
+cannot tell apart.
+
+IceStorm's Shoes is the case in point. Every shoe has two addons:
+
+| Addon | Footstep set |
+|---|---|
+| `AA_AutumnShoesGothBoots` | `AutumnHighHeelsFootstepSet` — the mod's own |
+| `AA_AutumnShoesGothBoots_NCS` | `DefaultFootstepSetXXX` — the placeholder |
+
+`_NCS` is "no custom sound": the variant the armor workbench switches to when you pick vanilla
+footsteps instead of the mod's. The patcher leaves the first alone, because it already has a
+footstep set it did not choose — but the second looks like unclaimed armor, and patching it undoes
+the opt-out. The Armor record is called `AutumnOutfitShoesGothBoots` either way, so only the
+addon's Editor ID separates them:
+
+```
+IceStormsShoes.esl:/_NCS$/i
+```
+
+ArmorAddon records have no display name, so there is no matching name filter.
+
+### Armor addon blacklist
+*Default: empty*
+
+Individual ArmorAddon records that never get the heel set.
 
 ## Logging
 

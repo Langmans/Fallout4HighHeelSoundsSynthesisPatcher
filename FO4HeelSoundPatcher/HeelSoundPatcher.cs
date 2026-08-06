@@ -71,21 +71,26 @@ public sealed class HeelSoundPatcher
         log.Info($"Detection order: {string.Join(" -> ", order)}  ({why})");
         log.RegisterSources(order);
 
+        var loadOrder = _state.LoadOrder.ListedOrder.Select(listing => listing.ModKey).ToList();
+        var loadedPlugins = loadOrder.ToHashSet();
+
         var assets = new DataAssetLocator(
-            _state.DataFolderPath, log,
-            _state.LoadOrder.ListedOrder.Select(listing => listing.ModKey),
-            _settings.Detection.SearchArchives);
+            _state.DataFolderPath, log, loadOrder, _settings.Detection.SearchArchives);
         var sources = DetectionSources.Create(order, assets, _state.LinkCache, log);
 
         var nameBlacklist = new RegexBlacklist(
             "Armor name blacklist", _settings.Filtering.ArmorNameBlacklist,
-            _settings.Filtering.RegexCaseSensitive, log);
+            _settings.Filtering.RegexCaseSensitive, loadedPlugins, log);
         var editorIdBlacklist = new RegexBlacklist(
             "Editor ID blacklist", _settings.Filtering.EditorIdBlacklist,
-            _settings.Filtering.RegexCaseSensitive, log);
+            _settings.Filtering.RegexCaseSensitive, loadedPlugins, log);
+        var addonEditorIdBlacklist = new RegexBlacklist(
+            "Armor addon Editor ID blacklist", _settings.Filtering.AddonEditorIdBlacklist,
+            _settings.Filtering.RegexCaseSensitive, loadedPlugins, log);
 
         var modBlacklist = _settings.Filtering.ModBlacklist.ToHashSet();
         var armorBlacklist = _settings.Filtering.ArmorBlacklist.Select(x => x.FormKey).ToHashSet();
+        var addonBlacklist = _settings.Filtering.ArmorAddonBlacklist.Select(x => x.FormKey).ToHashSet();
         var heelSlots = _settings.Detection.HeelSlots.ToFlags();
         var replaceable = _settings.Sound.ReplaceableFootstepSets
             .Select(link => link.FormKey)
@@ -142,12 +147,32 @@ public sealed class HeelSoundPatcher
                     continue;
                 }
 
+                // Filtered here rather than with the armor, because a blacklisted piece should not
+                // stop the rest of the outfit being patched.
+                if (addonBlacklist.Contains(addon.FormKey))
+                {
+                    log.Skipped("addon blacklisted",
+                        $"{Describe(armor)} -> ARMA {addon.FormKey} '{addon.EditorID}' is blacklisted");
+                    continue;
+                }
+
+                var addonMatch = addonEditorIdBlacklist.Match(addon.FormKey.ModKey, addon.EditorID);
+                if (addonMatch is not null)
+                {
+                    log.Skipped("addon editor id blacklisted",
+                        $"{Describe(armor)} -> ARMA {addon.FormKey} '{addon.EditorID}' matches {addonMatch}");
+                    continue;
+                }
+
                 ApplyFootstepSet(armor, addon, height, footstepSet, replaceable, log);
             }
         }
 
         log.CurrentContext = null;
         log.Info(string.Empty);
+        nameBlacklist.ReportUnused(log);
+        editorIdBlacklist.ReportUnused(log);
+        addonEditorIdBlacklist.ReportUnused(log);
         foreach (var statistic in sources.Statistics) log.Info(statistic);
         log.Info(assets.Statistics);
         log.WriteSummary();
@@ -175,14 +200,14 @@ public sealed class HeelSoundPatcher
             return false;
         }
 
-        var nameMatch = nameBlacklist.Match(armor.Name?.String);
+        var nameMatch = nameBlacklist.Match(armor.FormKey.ModKey, armor.Name?.String);
         if (nameMatch is not null)
         {
             log.Skipped("name blacklisted", $"{Describe(armor)} - name matches {nameMatch}");
             return false;
         }
 
-        var editorIdMatch = editorIdBlacklist.Match(armor.EditorID);
+        var editorIdMatch = editorIdBlacklist.Match(armor.FormKey.ModKey, armor.EditorID);
         if (editorIdMatch is not null)
         {
             log.Skipped("editor id blacklisted", $"{Describe(armor)} - editor id matches {editorIdMatch}");

@@ -49,6 +49,7 @@ Search the log for its name or Editor ID. One of these will be there:
 | `no matching slot` | The armor is marked as a heel but none of its pieces use a heel biped slot. See [Settings](settings.md#heel-biped-slots). |
 | `keeps its own footstep set` | The mod assigns its own footstep sound and the patcher left it alone. Add that set to [Footstep sets that may be replaced](settings.md#footstep-sets-that-may-be-replaced) to overrule it. |
 | `already set` | It already points at the heel footstep set. Nothing to do. |
+| `addon editor id blacklisted` / `addon blacklisted` | One piece was filtered out while the rest of the armor was still patched. |
 
 If it does not appear at all, the mod records no heel height in any source you have enabled. Check
 the detection order first; if all four are being consulted, the mod records no height anywhere the
@@ -59,7 +60,48 @@ either. You can add a `.txt` file next to the mesh yourself; see
 ## Something got the sound that should not have
 
 Add it to the **Armor name blacklist** or **Editor ID blacklist**. Both take regular expressions,
-in either plain form (`\bboots$`) or with delimiters and flags (`/\bboots$/i`).
+in either plain form (`\bboots$`) or with delimiters and flags (`/\bboots$/i`), and both accept a
+`Plugin.esp:` prefix to limit an entry to one mod.
+
+**A mod with its own no-sound variant.** Some mods ship two versions of each item so their sounds
+can be turned off. IceStorm's Shoes pairs every shoe with an `_NCS` copy — "no custom sound" —
+which the armor workbench switches to when you pick vanilla footsteps. The patcher leaves the
+normal one alone, since it already has a footstep set, but will happily patch the `_NCS` one and so
+undo the opt-out.
+
+The catch is that both belong to the same Armor record, so the name and Editor ID blacklists cannot
+separate them — the difference is on the addon. Use the
+[armor addon Editor ID blacklist](settings.md#armor-addon-editor-id-blacklist):
+
+```
+IceStormsShoes.esl:/_NCS$/i
+```
+
+### Checking a filter actually does something
+
+A filter that quietly does nothing looks exactly like one that works, so both ways that can happen
+are reported.
+
+Every active pattern is listed near the top of the log with the plugin it is limited to, and a
+scope naming a plugin you do not have is a warning rather than something you have to notice:
+
+```
+[INFO  ] Editor ID blacklist: 1 pattern(s), 1 limited to one plugin
+[INFO  ]     IceStormsShoes.esl:/_NCS$/i  ->  only records from IceStormsShoes.esl
+[WARN  ] Editor ID blacklist: 'Typo.esp:/_NCS$/i' is limited to 'Typo.esp', which is not in the
+         load order, so this entry will never match anything
+```
+
+The other case — a valid pattern whose plugin is loaded, but which matched nothing — is only
+knowable once the run is over, so it is reported at the end:
+
+```
+[INFO  ] Editor ID blacklist: 1 pattern(s) matched nothing this run:
+[INFO  ]     _NSC$
+```
+
+That is not necessarily wrong; you might be filtering something you have not installed. But if you
+expected it to catch something, that line is where a typo shows up.
 
 If a whole mod is wrong, use the **Plugin blacklist** instead.
 
