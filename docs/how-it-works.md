@@ -175,39 +175,49 @@ That index only covers `.txt`, `.json` and `.nif`, the three extensions that can
 Archives are mostly textures and sounds, so this roughly halves it: a vanilla install goes from
 338k entries to 174k, and the build from about two seconds to under one.
 
-It can be skipped entirely with
-[Search inside BA2 archives](settings.md#search-inside-ba2-archives), at the cost of missing any
-mod that packs its heel data.
-
-### Next-Gen archives
-
-Fallout 4's Next-Gen BA2 format (version 8, also what the backported Archive2 produces) records its
-entry sizes differently, and Mutagen 0.54 reads a compressed entry in one as though it were
-uncompressed — handing back the raw zlib blob. Left alone, every file out of such an archive is
-unusable.
-
-The patcher spots that a returned entry is still a zlib stream and inflates it, so version 8
-archives work. An entry that genuinely is not compressed carries no zlib header, so this does
-nothing to archives that already worked. The count is reported:
-
-```
-[INFO  ] Files read: 0 loose, 850 from BA2 (850 needed inflating), 2660 not found
-```
-
-For the header scan only the first 256 KB is decompressed, which is far more than any real NIF
-header needs. A mesh that passes the scan is reopened and inflated in full. Without that cap,
-scanning vanilla's archived meshes meant inflating close to a gigabyte to read a few kilobytes of
-each.
-
-The log reports what was indexed and where the files came from:
+The log reports what was indexed and where files were then read from:
 
 ```
 [INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives
-[INFO  ] Files read: 88 loose, 0 from BA2, 3969 not found
+[INFO  ] Files read: 0 loose, 850 from BA2 (850 needed inflating), 2660 not found
 ```
 
 A high "not found" count is normal — most armor has no heel data, and a miss is what establishes
-that.
+that. The `loose` versus `from BA2` split is also the quickest way to tell whether a mod manager's
+virtual file system is active: `0 loose` in a modded setup means it is not.
+
+Archive searching can be skipped entirely with
+[Search inside BA2 archives](settings.md#search-inside-ba2-archives), at the cost of missing any
+mod that packs its heel data.
+
+### Why some entries need inflating
+
+Files inside a BA2 are usually stored compressed, with zlib. Getting at the contents means
+decompressing them — *inflating*, in zlib's own terminology. Normally the archive reader does this
+for you, based on a flag in the archive's file table.
+
+Fallout 4's Next-Gen BA2 format — version 8, which is also what the backported Archive2 produces —
+records its entry sizes in a different layout. Mutagen 0.54 reads a compressed entry in one of
+those as though it were uncompressed, and hands back the raw zlib data instead of the file. Left
+alone, nothing out of such an archive is usable: a mesh is not a mesh, a `.txt` is binary noise.
+
+So the patcher checks whether what it got back still looks like a zlib stream, and inflates it
+itself if so. That is what `needed inflating` counts in the log line above. An entry that genuinely
+is not compressed does not carry a zlib header, so archives that already worked are untouched, and
+the count for them stays at zero.
+
+This is worth knowing about mainly because it is invisible when it goes wrong: the patcher simply
+finds no heel data in any archived mod, with nothing obviously broken.
+
+#### Inflating only what is needed
+
+Decompressing is not free, and the header scan only wants the first few kilobytes of a mesh. So an
+archived entry is inflated up to 256 KB for the scan — far more than any real NIF header — and only
+a mesh that passes the scan is reopened and inflated in full.
+
+Without that cap, scanning vanilla's archived meshes meant inflating close to a gigabyte to read a
+few kilobytes of each, which took the run from 3.7 to 9.3 seconds. With it, 4.1 seconds, reading
+850 meshes that previously could not be read at all.
 
 ## Adding heel data to a mod yourself
 

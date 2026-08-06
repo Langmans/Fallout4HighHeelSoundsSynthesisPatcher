@@ -114,8 +114,12 @@ eventually read from each place:
 
 ```
 [INFO  ] Indexed 174333 relevant files (.txt/.json/.nif) from 7/7 BA2 archives
-[INFO  ] Files read: 88 loose, 0 from BA2, 3969 not found
+[INFO  ] Files read: 0 loose, 850 from BA2 (850 needed inflating), 2660 not found
 ```
+
+`needed inflating` counts entries that came back still compressed and had to be decompressed here —
+see [Why some entries need inflating](how-it-works.md#why-some-entries-need-inflating). It is
+expected to be high for Next-Gen archives and zero for older ones; either way it is not a problem.
 
 ### Check female / male world model
 *Default: both on*
