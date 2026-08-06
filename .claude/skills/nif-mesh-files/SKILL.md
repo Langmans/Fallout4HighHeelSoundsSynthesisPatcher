@@ -99,7 +99,7 @@ Useful API surface:
 
 | Member | Notes |
 |---|---|
-| `Load(string)` / `Load(Stream)` | returns 0 on success. The `Stream` overload is what you want for BA2/BSA entries |
+| `Load(string)` / `Load(Stream)` | returns 0 on success. The `Stream` overload is what you want for archive entries |
 | `Blocks` | `List<INiObject>`; `OfType<T>()` is the simplest way to find anything |
 | `GetBlock<T>(int)` / `GetBlock<T>(INiRef)` | resolve a block reference, null on type mismatch |
 | `FindBlockByName<T>(string)` | first block of type T with that name |
@@ -185,7 +185,12 @@ reports 1 and `-l` is all-or-nothing.
 Mesh paths on records are relative to `meshes\`, but some mods store the prefix in the record
 anyway — prepend it only when it is missing, and normalise `/` to `\` before comparing.
 
-Meshes may be loose or inside a BA2/BSA. In Mutagen:
+Meshes may be loose or inside an archive. Which archive format depends on the game — Oblivion,
+Skyrim and Fallout 3/NV use `.bsa`, Fallout 4 and Starfield use `.ba2`, and a game only loads its
+own. Mutagen picks the right one from the `GameRelease`, so a Fallout 4 lookup never sees a `.bsa`
+even if one is sitting in the Data folder.
+
+In Mutagen:
 
 ```csharp
 foreach (var path in Archive.GetApplicableArchivePaths(GameRelease.Fallout4, dataFolder))
@@ -197,6 +202,14 @@ foreach (var path in Archive.GetApplicableArchivePaths(GameRelease.Fallout4, dat
 
 Mutagen's built-in `ArchiveAssetProvider` re-opens every applicable archive on every lookup, which
 is far too slow for hundreds of meshes — build one path→entry index up front and reuse it.
+
+**Check what you actually got back.** Fallout 4's Next-Gen BA2 (format version 8, also what the
+backported Archive2 produces) lays its entry sizes out differently, and Mutagen 0.54 reads a
+compressed entry in one as uncompressed — returning the raw zlib blob rather than the file. It
+fails silently: the mesh simply is not a mesh. Detect it by testing whether the bytes still start
+with a zlib header (`0x78`, and the first two bytes big-endian divisible by 31) and inflate with
+`ZLibStream` if so. Entries that really are uncompressed carry no such header, so the check is safe
+to apply always.
 
 Under a virtual file system (MO2), the data folder only shows mod files when the process is
 launched through the manager.
