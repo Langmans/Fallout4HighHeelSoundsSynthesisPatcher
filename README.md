@@ -1,3 +1,5 @@
+![FO4 High Heel Sounds — a Synthesis patcher for Fallout 4](.github/banner.png)
+
 # FO4 High Heel Sounds — Synthesis patcher
 
 Gives high heeled armor its own footstep sound, automatically, for your whole load order.
