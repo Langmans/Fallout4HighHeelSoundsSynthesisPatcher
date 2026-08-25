@@ -78,7 +78,10 @@ jobs:
   # no project code - it just takes the artifact the build produced and publishes it.
   publish-coverage:
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Any run on main except a pull request, which must not be able to overwrite the badge.
+    # Scheduled and manual runs count: without them the badge only ever refreshes when
+    # someone happens to push, and there is no way to rebuild it on demand.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     permissions:
